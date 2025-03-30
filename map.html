@@ -68,6 +68,18 @@
     input[type="checkbox"] {
       margin-right: 5px;
     }
+    /* Matrix table styling */
+    #matrix-container table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+      margin-top: 10px;
+    }
+    #matrix-container th,
+    #matrix-container td {
+      border: 1px solid #ccc;
+      padding: 5px;
+    }
     /* Mobile layout: stack map on top of sidebar */
     @media (max-width: 600px) {
       #map {
@@ -99,6 +111,8 @@
     <div id="stats"></div>
     <div id="distance-list">Click a store or select from the dropdown to see distances</div>
     <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
+    <button id="matrix-btn">Locations Matrix</button>
+    <div id="matrix-container" style="display:none;"></div>
   </div>
 
   <!-- Leaflet JS -->
@@ -113,14 +127,14 @@
     // Default store data (fallback)
     const defaultStores = [
       { name: "London",    lat: 51.5074, lon: -0.1278 },
-      { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
-      { name: "Cardiff",   lat: 51.4837, lon: -3.1791 },
-      { name: "Belfast",   lat: 54.5973, lon: -5.9301 }
+      { name: "Edinburgh",  lat: 55.9533, lon: -3.1883 },
+      { name: "Cardiff",    lat: 51.4837, lon: -3.1791 },
+      { name: "Belfast",    lat: 54.5973, lon: -5.9301 }
     ];
     
     // Global variables
     let stores = [];
-    let dataSource = "default"; // will be updated if external data loads
+    let dataSource = "default"; // Updated if external data loads
     var selectedStore = null;
     var lineLayer = L.layerGroup().addTo(map);
     var labelLayer = L.layerGroup().addTo(map);
@@ -184,7 +198,7 @@
 
     // Line colouring logic:
     // We want a gradient from green (nearest) to red (farthest).
-    // In HSL, green is at hue 120 and red is at hue 0.
+    // In HSL, green is at hue 120 and red at hue 0.
     // When distances are sorted ascending, index 0 (nearest) should be green.
     // We compute the hue as:
     //    hue = (1 - (index / (total - 1))) * 120
@@ -280,6 +294,103 @@
         renderLinesForStore(selectedStore);
       }
     }
+
+    // Render the Locations Matrix table.
+    function renderMatrix() {
+      let n = stores.length;
+      // Create a 2D matrix of distances.
+      let matrix = [];
+      for (let i = 0; i < n; i++) {
+        matrix[i] = [];
+        for (let j = 0; j < n; j++) {
+          if (i === j) {
+            matrix[i][j] = null; // Blank out same-location distance.
+          } else {
+            let d = L.latLng(stores[i].lat, stores[i].lon)
+                      .distanceTo(L.latLng(stores[j].lat, stores[j].lon)) * 0.000621371;
+            matrix[i][j] = d;
+          }
+        }
+      }
+      // Compute per-column minimum and maximum (ignoring nulls).
+      let colMin = [];
+      let colMax = [];
+      for (let j = 0; j < n; j++) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (let i = 0; i < n; i++) {
+          if (i === j) continue;
+          let d = matrix[i][j];
+          if (d < min) min = d;
+          if (d > max) max = d;
+        }
+        colMin[j] = min;
+        colMax[j] = max;
+      }
+      
+      // Create the HTML table.
+      let table = document.createElement('table');
+      // Header row.
+      let headerRow = document.createElement('tr');
+      let emptyHeader = document.createElement('th');
+      emptyHeader.innerText = "";
+      headerRow.appendChild(emptyHeader);
+      for (let j = 0; j < n; j++) {
+        let th = document.createElement('th');
+        th.innerText = stores[j].name;
+        headerRow.appendChild(th);
+      }
+      table.appendChild(headerRow);
+      
+      // Data rows.
+      for (let i = 0; i < n; i++) {
+        let row = document.createElement('tr');
+        // Row header.
+        let th = document.createElement('th');
+        th.innerText = stores[i].name;
+        row.appendChild(th);
+        for (let j = 0; j < n; j++) {
+          let td = document.createElement('td');
+          if (i === j) {
+            td.innerText = "";
+          } else {
+            let d = matrix[i][j];
+            td.innerText = d.toFixed(1);
+            // Color-code the cell based on column j.
+            let min = colMin[j];
+            let max = colMax[j];
+            let hue;
+            if (max === min) {
+              hue = 120;
+            } else {
+              let ratio = (d - min) / (max - min);
+              hue = (1 - ratio) * 120;
+            }
+            td.style.backgroundColor = `hsl(${hue}, 70%, 80%)`;
+          }
+          row.appendChild(td);
+        }
+        table.appendChild(row);
+      }
+      
+      // Place the table in the matrix container.
+      let matrixContainer = document.getElementById('matrix-container');
+      matrixContainer.innerHTML = "";
+      matrixContainer.appendChild(table);
+    }
+
+    // Toggle the matrix view on button click.
+    document.getElementById('matrix-btn').addEventListener('click', function() {
+      let matrixContainer = document.getElementById('matrix-container');
+      if (matrixContainer.style.display === "none" || matrixContainer.style.display === "") {
+        renderMatrix();
+        matrixContainer.style.display = "block";
+        this.innerText = "Hide Locations Matrix";
+      } else {
+        matrixContainer.style.display = "none";
+        this.innerText = "Locations Matrix";
+      }
+    });
 
     // Initialize the dropdown and markers.
     function initMap() {

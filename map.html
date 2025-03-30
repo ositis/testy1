@@ -69,6 +69,16 @@
       margin-right: 5px;
     }
     /* Matrix table styling */
+    #matrix-container {
+      margin-top: 10px;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: #fafafa;
+    }
+    #matrix-container h3 {
+      margin-top: 0;
+    }
     #matrix-container table {
       width: 100%;
       border-collapse: collapse;
@@ -78,7 +88,16 @@
     #matrix-container th,
     #matrix-container td {
       border: 1px solid #ccc;
-      padding: 5px;
+      padding: 6px;
+    }
+    /* Row hover highlight */
+    #matrix-container tr:hover {
+      background-color: #f0f0f0;
+    }
+    #matrix-legend {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
     }
     /* Mobile layout: stack map on top of sidebar */
     @media (max-width: 600px) {
@@ -111,7 +130,7 @@
     <div id="stats"></div>
     <div id="distance-list">Click a store or select from the dropdown to see distances</div>
     <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
-    <button id="matrix-btn">Locations Matrix</button>
+    <button id="matrix-btn">Show Locations Matrix</button>
     <div id="matrix-container" style="display:none;"></div>
   </div>
 
@@ -121,15 +140,15 @@
     // Initialize the map
     var map = L.map('map').setView([54.0, -2.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution: '© OpenStreetMap'
     }).addTo(map);
 
     // Default store data (fallback)
     const defaultStores = [
       { name: "London",    lat: 51.5074, lon: -0.1278 },
-      { name: "Edinburgh",  lat: 55.9533, lon: -3.1883 },
-      { name: "Cardiff",    lat: 51.4837, lon: -3.1791 },
-      { name: "Belfast",    lat: 54.5973, lon: -5.9301 }
+      { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
+      { name: "Cardiff",   lat: 51.4837, lon: -3.1791 },
+      { name: "Belfast",   lat: 54.5973, lon: -5.9301 }
     ];
     
     // Global variables
@@ -198,21 +217,19 @@
 
     // Line colouring logic:
     // We want a gradient from green (nearest) to red (farthest).
-    // In HSL, green is at hue 120 and red at hue 0.
-    // When distances are sorted ascending, index 0 (nearest) should be green.
-    // We compute the hue as:
-    //    hue = (1 - (index / (total - 1))) * 120
-    // This makes the nearest store hue 120 (green) and the farthest hue 0 (red).
+    // In HSL, green is hue 120, red is hue 0.
+    // Distances sorted ascending => index 0 = nearest => green.
+    // hue = (1 - (index / (total - 1))) * 120
     function getColor(index, total) {
       if (total <= 1) return `hsl(120, 70%, 50%)`;
       let hue = (1 - (index / (total - 1))) * 120;
       return `hsl(${hue}, 70%, 50%)`;
     }
 
-    // Function to draw straight lines and labels for a given store.
-    function drawStoreLines(store) {
+    // Compute distances from a single store to all others
+    function getDistancesForStore(store) {
       let startPoint = L.latLng(store.lat, store.lon);
-      let distances = stores
+      return stores
         .filter(s => s.name !== store.name)
         .map(s => {
           let endPoint = L.latLng(s.lat, s.lon);
@@ -221,6 +238,12 @@
           return { name: s.name, lat: s.lat, lon: s.lon, distance: distanceMiles };
         })
         .sort((a, b) => a.distance - b.distance);
+    }
+
+    // Draw lines for a single store
+    function drawStoreLines(store) {
+      let distances = getDistancesForStore(store);
+      let startPoint = L.latLng(store.lat, store.lon);
 
       distances.forEach((d, i) => {
         let color = getColor(i, distances.length);
@@ -231,6 +254,7 @@
           opacity: 0.8,
           lineCap: 'round'
         }).addTo(lineLayer);
+
         let midPoint = [
           (startPoint.lat + endPoint.lat) / 2,
           (startPoint.lng + endPoint.lng) / 2
@@ -244,48 +268,56 @@
         }).addTo(labelLayer);
       });
 
-      let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
-      let maxDistance = distances[distances.length - 1].distance;
-      return { avgDistance, maxDistance, distances, storeName: store.name };
+      return distances;
     }
 
-    // Render lines for a single selected store.
+    // Render lines for a single selected store, plus stats
     function renderLinesForStore(store) {
       lineLayer.clearLayers();
       labelLayer.clearLayers();
-      let stats = drawStoreLines(store);
+
+      let distances = drawStoreLines(store);
+      if (distances.length === 0) return;
+
+      let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
+      let maxDistance = distances[distances.length - 1].distance;
+      let nearestStore = distances[0]; // since sorted ascending
       document.getElementById('distance-list').innerHTML = `
         <h3>${store.name} (selected)</h3>
-        <ul>${stats.distances.map((d, i) => `
-          <li style="color: ${getColor(i, stats.distances.length)}">
-            <span style="display: inline-block; width: 10px; height: 10px; background: ${getColor(i, stats.distances.length)}; margin-right: 5px;"></span>
+        <ul>${distances.map((d, i) => `
+          <li style="color: ${getColor(i, distances.length)}">
+            <span style="display: inline-block; width: 10px; height: 10px; background: ${getColor(i, distances.length)}; margin-right: 5px;"></span>
             ${d.name}: ${d.distance.toFixed(1)} miles
           </li>`).join('')}
         </ul>`;
+
       document.getElementById('stats').innerHTML = `
-        Avg. Distance: ${stats.avgDistance.toFixed(1)} mi<br>
-        Farthest: ${stats.maxDistance.toFixed(1)} mi
+        Nearest: ${nearestStore.name} (${nearestStore.distance.toFixed(1)} mi)<br>
+        Avg. Distance: ${avgDistance.toFixed(1)} mi<br>
+        Farthest: ${maxDistance.toFixed(1)} mi
       `;
       if (lineLayer.getLayers().length > 0) {
         map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
       }
     }
 
-    // Render lines for all stores.
+    // Render lines for all stores
     function renderAllLines() {
       lineLayer.clearLayers();
       labelLayer.clearLayers();
       stores.forEach(store => {
         drawStoreLines(store);
       });
-      document.getElementById('distance-list').innerHTML = `<h3>All stores selected</h3><p>Displaying all store-to-store lines.</p>`;
+      document.getElementById('distance-list').innerHTML = `
+        <h3>All stores selected</h3>
+        <p>Displaying all store-to-store lines.</p>`;
       document.getElementById('stats').innerHTML = ``;
       if (lineLayer.getLayers().length > 0) {
         map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
       }
     }
 
-    // Update the map based on the current selection and checkbox state.
+    // Update the map based on the current selection and checkbox state
     function updateMap() {
       let showAll = document.getElementById('show-all-lines').checked;
       if (showAll) {
@@ -295,16 +327,16 @@
       }
     }
 
-    // Render the Locations Matrix table.
+    // Render the Locations Matrix table
     function renderMatrix() {
       let n = stores.length;
-      // Create a 2D matrix of distances.
+      // Create a 2D matrix of distances
       let matrix = [];
       for (let i = 0; i < n; i++) {
         matrix[i] = [];
         for (let j = 0; j < n; j++) {
           if (i === j) {
-            matrix[i][j] = null; // Blank out same-location distance.
+            matrix[i][j] = null; // blank out same-location
           } else {
             let d = L.latLng(stores[i].lat, stores[i].lon)
                       .distanceTo(L.latLng(stores[j].lat, stores[j].lon)) * 0.000621371;
@@ -312,7 +344,7 @@
           }
         }
       }
-      // Compute per-column minimum and maximum (ignoring nulls).
+      // Compute per-column min/max (ignoring nulls)
       let colMin = [];
       let colMax = [];
       for (let j = 0; j < n; j++) {
@@ -327,10 +359,16 @@
         colMin[j] = min;
         colMax[j] = max;
       }
-      
-      // Create the HTML table.
+
+      // Build the HTML table
       let table = document.createElement('table');
-      // Header row.
+
+      // Title row
+      let caption = document.createElement('caption');
+      caption.innerHTML = `<h3>Distances Matrix (Miles)</h3>`;
+      table.appendChild(caption);
+
+      // Header row
       let headerRow = document.createElement('tr');
       let emptyHeader = document.createElement('th');
       emptyHeader.innerText = "";
@@ -341,11 +379,11 @@
         headerRow.appendChild(th);
       }
       table.appendChild(headerRow);
-      
-      // Data rows.
+
+      // Data rows
       for (let i = 0; i < n; i++) {
         let row = document.createElement('tr');
-        // Row header.
+        // Row header
         let th = document.createElement('th');
         th.innerText = stores[i].name;
         row.appendChild(th);
@@ -356,15 +394,15 @@
           } else {
             let d = matrix[i][j];
             td.innerText = d.toFixed(1);
-            // Color-code the cell based on column j.
+            // Color-code cell based on column j
             let min = colMin[j];
             let max = colMax[j];
             let hue;
             if (max === min) {
-              hue = 120;
+              hue = 120; // all distances same => green
             } else {
               let ratio = (d - min) / (max - min);
-              hue = (1 - ratio) * 120;
+              hue = (1 - ratio) * 120; // green (near) to red (far)
             }
             td.style.backgroundColor = `hsl(${hue}, 70%, 80%)`;
           }
@@ -372,14 +410,23 @@
         }
         table.appendChild(row);
       }
-      
-      // Place the table in the matrix container.
+
+      // Legend
+      let legend = document.createElement('div');
+      legend.id = 'matrix-legend';
+      legend.innerHTML = `
+        <strong>Legend:</strong> Each column is color‑coded from green (nearest) to red (farthest).<br>
+        Blank cells indicate the same location.
+      `;
+
+      // Place the table in the matrix container
       let matrixContainer = document.getElementById('matrix-container');
       matrixContainer.innerHTML = "";
       matrixContainer.appendChild(table);
+      matrixContainer.appendChild(legend);
     }
 
-    // Toggle the matrix view on button click.
+    // Toggle the matrix view on button click
     document.getElementById('matrix-btn').addEventListener('click', function() {
       let matrixContainer = document.getElementById('matrix-container');
       if (matrixContainer.style.display === "none" || matrixContainer.style.display === "") {
@@ -388,13 +435,13 @@
         this.innerText = "Hide Locations Matrix";
       } else {
         matrixContainer.style.display = "none";
-        this.innerText = "Locations Matrix";
+        this.innerText = "Show Locations Matrix";
       }
     });
 
-    // Initialize the dropdown and markers.
+    // Initialize the dropdown and markers
     function initMap() {
-      // Populate dropdown with store options.
+      // Populate dropdown with store options
       storeSelect.innerHTML = "";
       stores.forEach((store, index) => {
         let option = document.createElement('option');
@@ -403,7 +450,7 @@
         storeSelect.appendChild(option);
       });
 
-      // Set up event listeners.
+      // Set up event listeners
       storeSelect.addEventListener('change', function() {
         let index = parseInt(this.value);
         selectedStore = stores[index];
@@ -413,7 +460,7 @@
         updateMap();
       });
 
-      // Add store markers and click events.
+      // Add store markers and click events
       stores.forEach((store, index) => {
         let marker = L.circleMarker([store.lat, store.lon], {
           color: 'blue',
@@ -428,7 +475,7 @@
         });
       });
 
-      // Default selection.
+      // Default selection
       selectedStore = stores[0];
       storeSelect.value = 0;
       updateMap();
@@ -437,7 +484,7 @@
         : "Store data loaded from " + dataSource + " file.";
     }
 
-    // Load store data, then initialize the map.
+    // Load store data, then initialize the map
     loadStoreData().then(data => {
       stores = data;
       initMap();

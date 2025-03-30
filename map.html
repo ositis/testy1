@@ -1,267 +1,336 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>UK Store Network Feasibility</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #eaeaea;
-        }
-        /* Desktop layout */
-        #map {
-            height: 100vh;
-            width: 70%;
-            float: left;
-        }
-        #sidebar {
-            height: 100vh;
-            width: 30%;
-            float: right;
-            padding: 20px;
-            background-color: #ffffff;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-        #stats {
-            margin-bottom: 10px;
-            font-size: 16px;
-            color: #333;
-        }
-        .distance-label {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 3px 7px;
-            font-size: 12px;
-            border-radius: 3px;
-            border: 1px solid #ccc;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px 15px;
-            font-size: 14px;
-            background-color: #4CAF50;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        label {
-            font-size: 14px;
-            color: #333;
-        }
-        select {
-            padding: 5px;
-            font-size: 14px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            margin-bottom: 10px;
-        }
-        input[type="checkbox"] {
-            margin-right: 5px;
-        }
-        /* Mobile layout: stack map on top of sidebar */
-        @media (max-width: 600px) {
-            #map {
-                width: 100%;
-                height: 60vh;
-                float: none;
-            }
-            #sidebar {
-                width: 100%;
-                height: 40vh;
-                float: none;
-            }
-        }
-    </style>
+  <title>UK Store Network Feasibility</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- SheetJS for Excel file support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #eaeaea;
+    }
+    /* Desktop layout */
+    #map {
+      height: 100vh;
+      width: 70%;
+      float: left;
+    }
+    #sidebar {
+      height: 100vh;
+      width: 30%;
+      float: right;
+      padding: 20px;
+      background-color: #ffffff;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    #stats {
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: #333;
+    }
+    .distance-label {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 3px 7px;
+      font-size: 12px;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 15px;
+      font-size: 14px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    label {
+      font-size: 14px;
+      color: #333;
+    }
+    select {
+      padding: 5px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+    input[type="checkbox"] {
+      margin-right: 5px;
+    }
+    /* Mobile layout: stack map on top of sidebar */
+    @media (max-width: 600px) {
+      #map {
+        width: 100%;
+        height: 60vh;
+        float: none;
+      }
+      #sidebar {
+        width: 100%;
+        height: 40vh;
+        float: none;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="sidebar">
-        <div>
-            <label for="store-select">Select Store: </label>
-            <select id="store-select"></select>
-        </div>
-        <div>
-            <input type="checkbox" id="show-all-lines">
-            <label for="show-all-lines">Show all lines</label>
-        </div>
-        <div id="stats"></div>
-        <div id="distance-list">Click a store or select from the dropdown to see distances</div>
-        <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
+  <div id="map"></div>
+  <div id="sidebar">
+    <div>
+      <label for="store-select">Select Store: </label>
+      <select id="store-select"></select>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        var map = L.map('map').setView([54.0, -2.0], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(map);
+    <div>
+      <input type="checkbox" id="show-all-lines">
+      <label for="show-all-lines">Show all lines</label>
+    </div>
+    <!-- File source status -->
+    <div id="file-status" style="font-size: 12px; color: #666; margin-bottom: 10px;"></div>
+    <div id="stats"></div>
+    <div id="distance-list">Click a store or select from the dropdown to see distances</div>
+    <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
+  </div>
 
-        // Store data
-        let stores = [
-            { name: "London", lat: 51.5074, lon: -0.1278 },
-            { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
-            { name: "Cardiff", lat: 51.4837, lon: -3.1791 },
-            { name: "Belfast", lat: 54.5973, lon: -5.9301 }
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    var map = L.map('map').setView([54.0, -2.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Default store data (fallback)
+    const defaultStores = [
+      { name: "London",    lat: 51.5074, lon: -0.1278 },
+      { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
+      { name: "Cardiff",   lat: 51.4837, lon: -3.1791 },
+      { name: "Belfast",   lat: 54.5973, lon: -5.9301 }
+    ];
+    
+    // Global variables
+    let stores = [];
+    let dataSource = "default"; // will be updated if external data loads
+    var selectedStore = null;
+    var lineLayer = L.layerGroup().addTo(map);
+    var labelLayer = L.layerGroup().addTo(map);
+    var storeSelect = document.getElementById('store-select');
+    var fileStatus = document.getElementById('file-status');
+
+    // Async function to load store data from external Excel or CSV file.
+    async function loadStoreData() {
+      // Try loading Excel file first
+      try {
+        let response = await fetch('locations.xlsx');
+        if (response.ok) {
+          let data = await response.arrayBuffer();
+          let workbook = XLSX.read(data, { type: 'array' });
+          let firstSheetName = workbook.SheetNames[0];
+          let worksheet = workbook.Sheets[firstSheetName];
+          let jsonData = XLSX.utils.sheet_to_json(worksheet);
+          if (jsonData && jsonData.length > 0) {
+            dataSource = "Excel";
+            return jsonData.map(row => ({
+              name: row.Name,
+              lat: parseFloat(row.Latitude),
+              lon: parseFloat(row.Longitude)
+            }));
+          }
+        }
+      } catch (e) {
+        console.log("Excel load failed:", e);
+      }
+      // Try loading CSV file next
+      try {
+        let response = await fetch('locations.csv');
+        if (response.ok) {
+          let text = await response.text();
+          let lines = text.trim().split("\n");
+          let header = lines[0].split(",").map(h => h.trim());
+          let nameIndex = header.indexOf("Name");
+          let latIndex = header.indexOf("Latitude");
+          let lonIndex = header.indexOf("Longitude");
+          if (nameIndex !== -1 && latIndex !== -1 && lonIndex !== -1) {
+            let data = [];
+            for (let i = 1; i < lines.length; i++) {
+              let row = lines[i].split(",").map(cell => cell.trim());
+              data.push({
+                name: row[nameIndex],
+                lat: parseFloat(row[latIndex]),
+                lon: parseFloat(row[lonIndex])
+              });
+            }
+            dataSource = "CSV";
+            return data;
+          }
+        }
+      } catch (e) {
+        console.log("CSV load failed:", e);
+      }
+      // Fallback to default
+      dataSource = "default";
+      return defaultStores;
+    }
+
+    // Line colouring logic:
+    // We want a gradient from green (nearest) to red (farthest).
+    // In HSL, green is at hue 120 and red is at hue 0.
+    // When distances are sorted ascending, index 0 (nearest) should be green.
+    // We compute the hue as:
+    //    hue = (1 - (index / (total - 1))) * 120
+    // This makes the nearest store hue 120 (green) and the farthest hue 0 (red).
+    function getColor(index, total) {
+      if (total <= 1) return `hsl(120, 70%, 50%)`;
+      let hue = (1 - (index / (total - 1))) * 120;
+      return `hsl(${hue}, 70%, 50%)`;
+    }
+
+    // Function to draw straight lines and labels for a given store.
+    function drawStoreLines(store) {
+      let startPoint = L.latLng(store.lat, store.lon);
+      let distances = stores
+        .filter(s => s.name !== store.name)
+        .map(s => {
+          let endPoint = L.latLng(s.lat, s.lon);
+          let distanceMeters = startPoint.distanceTo(endPoint);
+          let distanceMiles = distanceMeters * 0.000621371;
+          return { name: s.name, lat: s.lat, lon: s.lon, distance: distanceMiles };
+        })
+        .sort((a, b) => a.distance - b.distance);
+
+      distances.forEach((d, i) => {
+        let color = getColor(i, distances.length);
+        let endPoint = L.latLng(d.lat, d.lon);
+        L.polyline([startPoint, endPoint], { 
+          color: color, 
+          weight: i === 0 ? 4 : 2,
+          opacity: 0.8,
+          lineCap: 'round'
+        }).addTo(lineLayer);
+        let midPoint = [
+          (startPoint.lat + endPoint.lat) / 2,
+          (startPoint.lng + endPoint.lng) / 2
         ];
+        L.marker(midPoint, {
+          icon: L.divIcon({
+            className: 'distance-label',
+            html: `${d.distance.toFixed(1)} mi`,
+            iconSize: [50, 20]
+          })
+        }).addTo(labelLayer);
+      });
 
-        // Layers for lines and labels
-        let lineLayer = L.layerGroup().addTo(map);
-        let labelLayer = L.layerGroup().addTo(map);
+      let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
+      let maxDistance = distances[distances.length - 1].distance;
+      return { avgDistance, maxDistance, distances, storeName: store.name };
+    }
 
-        // Global variable for selected store
-        var selectedStore = null;
+    // Render lines for a single selected store.
+    function renderLinesForStore(store) {
+      lineLayer.clearLayers();
+      labelLayer.clearLayers();
+      let stats = drawStoreLines(store);
+      document.getElementById('distance-list').innerHTML = `
+        <h3>${store.name} (selected)</h3>
+        <ul>${stats.distances.map((d, i) => `
+          <li style="color: ${getColor(i, stats.distances.length)}">
+            <span style="display: inline-block; width: 10px; height: 10px; background: ${getColor(i, stats.distances.length)}; margin-right: 5px;"></span>
+            ${d.name}: ${d.distance.toFixed(1)} miles
+          </li>`).join('')}
+        </ul>`;
+      document.getElementById('stats').innerHTML = `
+        Avg. Distance: ${stats.avgDistance.toFixed(1)} mi<br>
+        Farthest: ${stats.maxDistance.toFixed(1)} mi
+      `;
+      if (lineLayer.getLayers().length > 0) {
+        map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
+      }
+    }
 
-        // Populate dropdown with store options
-        var storeSelect = document.getElementById('store-select');
-        stores.forEach((store, index) => {
-            let option = document.createElement('option');
-            option.value = index;
-            option.text = store.name;
-            storeSelect.appendChild(option);
-        });
+    // Render lines for all stores.
+    function renderAllLines() {
+      lineLayer.clearLayers();
+      labelLayer.clearLayers();
+      stores.forEach(store => {
+        drawStoreLines(store);
+      });
+      document.getElementById('distance-list').innerHTML = `<h3>All stores selected</h3><p>Displaying all store-to-store lines.</p>`;
+      document.getElementById('stats').innerHTML = ``;
+      if (lineLayer.getLayers().length > 0) {
+        map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
+      }
+    }
 
-        // Line colouring logic:
-        // We want a gradient from green (nearest) to red (farthest).
-        // In HSL, green is at hue 120 and red at hue 0.
-        // When distances are sorted ascending, index 0 (nearest) should be green.
-        // We compute the hue as:
-        //    hue = (1 - (index / (total - 1))) * 120
-        // This makes the nearest store hue 120 (green) and the farthest hue 0 (red).
-        function getColor(index, total) {
-            if (total <= 1) return `hsl(120, 70%, 50%)`;
-            let hue = (1 - (index / (total - 1))) * 120;
-            return `hsl(${hue}, 70%, 50%)`;
-        }
+    // Update the map based on the current selection and checkbox state.
+    function updateMap() {
+      let showAll = document.getElementById('show-all-lines').checked;
+      if (showAll) {
+        renderAllLines();
+      } else if (selectedStore !== null) {
+        renderLinesForStore(selectedStore);
+      }
+    }
 
-        // Function to draw straight lines and labels for a given store
-        function drawStoreLines(store) {
-            let startPoint = L.latLng(store.lat, store.lon);
-            let distances = stores
-                .filter(s => s !== store)
-                .map(s => {
-                    let endPoint = L.latLng(s.lat, s.lon);
-                    let distanceMeters = startPoint.distanceTo(endPoint);
-                    let distanceMiles = distanceMeters * 0.000621371;
-                    return { name: s.name, lat: s.lat, lon: s.lon, distance: distanceMiles };
-                })
-                .sort((a, b) => a.distance - b.distance); // Sort by distance
+    // Initialize the dropdown and markers.
+    function initMap() {
+      // Populate dropdown with store options.
+      storeSelect.innerHTML = "";
+      stores.forEach((store, index) => {
+        let option = document.createElement('option');
+        option.value = index;
+        option.text = store.name;
+        storeSelect.appendChild(option);
+      });
 
-            // Draw straight lines and labels for this store
-            distances.forEach((d, i) => {
-                let color = getColor(i, distances.length);
-                let endPoint = L.latLng(d.lat, d.lon);
-                L.polyline([startPoint, endPoint], { 
-                    color: color, 
-                    weight: i === 0 ? 4 : 2,
-                    opacity: 0.8,
-                    lineCap: 'round'
-                }).addTo(lineLayer);
-
-                let midPoint = [
-                    (startPoint.lat + endPoint.lat) / 2,
-                    (startPoint.lng + endPoint.lng) / 2
-                ];
-                L.marker(midPoint, {
-                    icon: L.divIcon({
-                        className: 'distance-label',
-                        html: `${d.distance.toFixed(1)} mi`,
-                        iconSize: [50, 20]
-                    })
-                }).addTo(labelLayer);
-            });
-
-            // Compute summary stats for this store's lines
-            let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
-            let maxDistance = distances[distances.length - 1].distance;
-            return { avgDistance, maxDistance, distances, storeName: store.name };
-        }
-
-        // Render lines for a single selected store
-        function renderLinesForStore(store) {
-            lineLayer.clearLayers();
-            labelLayer.clearLayers();
-            let stats = drawStoreLines(store);
-            // Update sidebar with selected store details and distances
-            document.getElementById('distance-list').innerHTML = `
-                <h3>${store.name} (selected)</h3>
-                <ul>${stats.distances.map((d, i) => `
-                    <li style="color: ${getColor(i, stats.distances.length)}">
-                        <span style="display: inline-block; width: 10px; height: 10px; background: ${getColor(i, stats.distances.length)}; margin-right: 5px;"></span>
-                        ${d.name}: ${d.distance.toFixed(1)} miles
-                    </li>`).join('')}
-                </ul>`;
-            document.getElementById('stats').innerHTML = `
-                Avg. Distance: ${stats.avgDistance.toFixed(1)} mi<br>
-                Farthest: ${stats.maxDistance.toFixed(1)} mi
-            `;
-            // Zoom to fit the drawn lines
-            if (lineLayer.getLayers().length > 0) {
-                map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
-            }
-        }
-
-        // Render lines for all stores (all possible lines)
-        function renderAllLines() {
-            lineLayer.clearLayers();
-            labelLayer.clearLayers();
-            stores.forEach(store => {
-                drawStoreLines(store);
-            });
-            // Update sidebar with a summary message
-            document.getElementById('distance-list').innerHTML = `<h3>All stores selected</h3><p>Displaying all store-to-store lines.</p>`;
-            document.getElementById('stats').innerHTML = ``;
-            if (lineLayer.getLayers().length > 0) {
-                map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
-            }
-        }
-
-        // Update map based on current selection and checkbox state
-        function updateMap() {
-            let showAll = document.getElementById('show-all-lines').checked;
-            if (showAll) {
-                renderAllLines();
-            } else if (selectedStore !== null) {
-                renderLinesForStore(selectedStore);
-            }
-        }
-
-        // Add event listeners for dropdown change and checkbox change
-        storeSelect.addEventListener('change', function() {
-            let index = parseInt(this.value);
-            selectedStore = stores[index];
-            updateMap();
-        });
-
-        document.getElementById('show-all-lines').addEventListener('change', function() {
-            updateMap();
-        });
-
-        // Plot store markers and attach click events
-        stores.forEach((store, index) => {
-            let marker = L.circleMarker([store.lat, store.lon], {
-                color: 'blue',
-                radius: 8
-            }).addTo(map)
-            .bindTooltip(store.name, { permanent: false, direction: 'top' });
-
-            marker.on('click', () => {
-                // Set the selected store based on marker click
-                selectedStore = store;
-                storeSelect.value = index;
-                updateMap();
-            });
-        });
-
-        // Initialize selection to the first store by default
-        selectedStore = stores[0];
-        storeSelect.value = 0;
+      // Set up event listeners.
+      storeSelect.addEventListener('change', function() {
+        let index = parseInt(this.value);
+        selectedStore = stores[index];
         updateMap();
-    </script>
+      });
+      document.getElementById('show-all-lines').addEventListener('change', function() {
+        updateMap();
+      });
+
+      // Add store markers and click events.
+      stores.forEach((store, index) => {
+        let marker = L.circleMarker([store.lat, store.lon], {
+          color: 'blue',
+          radius: 8
+        }).addTo(map)
+        .bindTooltip(store.name, { permanent: false, direction: 'top' });
+
+        marker.on('click', () => {
+          selectedStore = store;
+          storeSelect.value = index;
+          updateMap();
+        });
+      });
+
+      // Default selection.
+      selectedStore = stores[0];
+      storeSelect.value = 0;
+      updateMap();
+      fileStatus.innerHTML = dataSource === "default" 
+        ? "Using default store data." 
+        : "Store data loaded from " + dataSource + " file.";
+    }
+
+    // Load store data, then initialize the map.
+    loadStoreData().then(data => {
+      stores = data;
+      initMap();
+    });
+  </script>
 </body>
 </html>

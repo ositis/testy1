@@ -78,17 +78,23 @@
     }
     #matrix-container h3 {
       margin-top: 0;
+      font-size: 18px;
     }
     #matrix-container table {
       width: 100%;
       border-collapse: collapse;
       text-align: center;
       margin-top: 10px;
+      table-layout: fixed;
     }
     #matrix-container th,
     #matrix-container td {
       border: 1px solid #ccc;
-      padding: 6px;
+      padding: 8px;
+      box-sizing: border-box;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      hyphens: auto;
     }
     /* Row hover highlight */
     #matrix-container tr:hover {

@@ -8,6 +8,7 @@
         #map { height: 100vh; width: 70%; float: left; }
         #sidebar { height: 100vh; width: 30%; float: right; padding: 10px; font-family: Arial; }
         body { margin: 0; overflow: hidden; }
+        .distance-label { background: rgba(255, 255, 255, 0.7); padding: 2px 5px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -20,7 +21,7 @@
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Store data
+        // Store data (sample, scalable to 200)
         let stores = [
             { name: "London", lat: 51.5074, lon: -0.1278 },
             { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
@@ -28,8 +29,15 @@
             { name: "Belfast", lat: 54.5973, lon: -5.9301 }
         ];
 
-        // Layer to hold lines
+        // Layers for lines and labels
         let lineLayer = L.layerGroup().addTo(map);
+        let labelLayer = L.layerGroup().addTo(map);
+
+        // Generate unique colors (scalable for 200 stores)
+        function getColor(index, total) {
+            let hue = (index * 360 / total) % 360; // Spread hues evenly
+            return `hsl(${hue}, 70%, 50%)`; // Bright, distinct colors
+        }
 
         // Plot stores
         stores.forEach(store => {
@@ -39,23 +47,48 @@
             }).addTo(map);
 
             marker.on('click', () => {
-                // Clear previous lines
+                // Clear previous lines and labels
                 lineLayer.clearLayers();
+                labelLayer.clearLayers();
 
-                // Calculate and draw lines to other stores
+                // Calculate distances and draw lines
                 let startPoint = L.latLng(store.lat, store.lon);
                 let distances = stores
-                    .filter(s => s !== store) // Exclude the clicked store
-                    .map(s => {
+                    .filter(s => s !== store) // Exclude clicked store
+                    .map((s, i) => {
                         let endPoint = L.latLng(s.lat, s.lon);
                         let distanceMeters = startPoint.distanceTo(endPoint);
-                        let distanceMiles = (distanceMeters * 0.000621371).toFixed(1); // Convert to miles
-                        L.polyline([startPoint, endPoint], { color: 'red' }).addTo(lineLayer);
-                        return `${s.name}: ${distanceMiles} miles`;
+                        let distanceMiles = (distanceMeters * 0.000621371).toFixed(1);
+                        let color = getColor(i, stores.length - 1);
+
+                        // Draw line
+                        L.polyline([startPoint, endPoint], { color: color }).addTo(lineLayer);
+
+                        // Add distance label at midpoint
+                        let midPoint = [
+                            (startPoint.lat + endPoint.lat) / 2,
+                            (startPoint.lng + endPoint.lng) / 2
+                        ];
+                        L.marker(midPoint, {
+                            icon: L.divIcon({
+                                className: 'distance-label',
+                                html: `${distanceMiles} mi`,
+                                iconSize: [50, 20]
+                            })
+                        }).addTo(labelLayer);
+
+                        return { name: s.name, distance: distanceMiles, color: color };
                     });
 
-                // Update sidebar
-                document.getElementById('sidebar').innerHTML = `<h3>${store.name}</h3><ul><li>${distances.join('</li><li>')}</li></ul>`;
+                // Update sidebar with colored list
+                document.getElementById('sidebar').innerHTML = `
+                    <h3>${store.name}</h3>
+                    <ul>${distances.map(d => `
+                        <li style="color: ${d.color}">
+                            <span style="display: inline-block; width: 10px; height: 10px; background: ${d.color}; margin-right: 5px;"></span>
+                            ${d.name}: ${d.distance} miles
+                        </li>`).join('')}
+                    </ul>`;
             });
         });
     </script>

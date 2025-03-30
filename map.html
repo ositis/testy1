@@ -7,22 +7,28 @@
     <style>
         #map { height: 100vh; width: 70%; float: left; }
         #sidebar { height: 100vh; width: 30%; float: right; padding: 10px; font-family: Arial; }
+        #stats { margin-bottom: 10px; font-size: 14px; }
         body { margin: 0; overflow: hidden; }
         .distance-label { background: rgba(255, 255, 255, 0.7); padding: 2px 5px; font-size: 12px; }
+        button { margin-top: 10px; padding: 5px; }
     </style>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-polylinedecorator/1.5.0/leaflet.polylineDecorator.js"></script>
 </head>
 <body>
     <div id="map"></div>
-    <div id="sidebar">Click a store to see distances</div>
+    <div id="sidebar">
+        <div id="stats"></div>
+        <div id="distance-list">Click a store to see distances</div>
+        <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script> <!-- For curves -->
     <script>
         var map = L.map('map').setView([54.0, -2.0], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Store data (sample, scalable to 200)
+        // Store data
         let stores = [
             { name: "London", lat: 51.5074, lon: -0.1278 },
             { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
@@ -30,15 +36,22 @@
             { name: "Belfast", lat: 54.5973, lon: -5.9301 }
         ];
 
-        // Layers for lines, labels, and arrows
+        // Layers
         let lineLayer = L.layerGroup().addTo(map);
         let labelLayer = L.layerGroup().addTo(map);
-        let arrowLayer = L.layerGroup().addTo(map);
 
-        // Generate unique colors (scalable for 200 stores)
+        // Gradient color (green to red)
         function getColor(index, total) {
-            let hue = (index * 360 / total) % 360; // Spread hues evenly
-            return `hsl(${hue}, 70%, 50%)`; // Bright, distinct colors
+            let hue = (index / total) * 120; // 0 (green) to 120 (red)
+            return `hsl(${hue}, 70%, 50%)`;
+        }
+
+        // Bezier curve helper (simplified)
+        function getCurve(start, end) {
+            let midLat = (start.lat + end.lat) / 2;
+            let midLon = (start.lng + end.lng) / 2;
+            let control = [midLat + (end.lat - start.lat) * 0.2, midLon + (end.lng - start.lng) * 0.2];
+            return [start, [control[0], control[1]], end];
         }
 
         // Plot stores
@@ -46,57 +59,69 @@
             let marker = L.circleMarker([store.lat, store.lon], {
                 color: 'blue',
                 radius: 8
-            }).addTo(map);
+            }).addTo(map)
+            .bindTooltip(store.name, { permanent: false, direction: 'top' }); // Tooltip on hover/tap
 
             marker.on('click', () => {
-                // Clear previous lines, labels, and arrows
                 lineLayer.clearLayers();
                 labelLayer.clearLayers();
-                arrowLayer.clearLayers();
 
-                // Calculate distances and draw lines with arrows
                 let startPoint = L.latLng(store.lat, store.lon);
                 let distances = stores
-                    .filter(s => s !== store) // Exclude clicked store
-                    .map((s, i) => {
+                    .filter(s => s !== store)
+                    .map(s => {
                         let endPoint = L.latLng(s.lat, s.lon);
                         let distanceMeters = startPoint.distanceTo(endPoint);
-                        let distanceMiles = (distanceMeters * 0.000621371).toFixed(1);
-                        let color = getColor(i, stores.length - 1);
+                        let distanceMiles = distanceMeters * 0.000621371;
+                        return { name: s.name, lat: s.lat, lon: s.lon, distance: distanceMiles };
+                    })
+                    .sort((a, b) => a.distance - b.distance); // Sort by distance
 
-                        // Draw line with arrow
-                        let polyline = L.polyline([startPoint, endPoint], { color: color }).addTo(lineLayer);
-                        L.polylineDecorator(polyline, {
-                            patterns: [
-                                { offset: '50%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { color: color, weight: 2 } }) }
-                            ]
-                        }).addTo(arrowLayer);
+                // Draw curved lines and labels
+                distances.forEach((d, i) => {
+                    let color = getColor(i, distances.length);
+                    let endPoint = L.latLng(d.lat, d.lon);
+                    let curve = getCurve(startPoint, endPoint);
+                    L.polyline(curve, { 
+                        color: color, 
+                        weight: i === 0 ? 4 : 2 // Thicker for nearest
+                    }).addTo(lineLayer);
 
-                        // Add distance label at midpoint
-                        let midPoint = [
-                            (startPoint.lat + endPoint.lat) / 2,
-                            (startPoint.lng + endPoint.lng) / 2
-                        ];
-                        L.marker(midPoint, {
-                            icon: L.divIcon({
-                                className: 'distance-label',
-                                html: `${distanceMiles} mi`,
-                                iconSize: [50, 20]
-                            })
-                        }).addTo(labelLayer);
+                    let midPoint = [
+                        (startPoint.lat + endPoint.lat) / 2,
+                        (startPoint.lng + endPoint.lng) / 2
+                    ];
+                    L.marker(midPoint, {
+                        icon: L.divIcon({
+                            className: 'distance-label',
+                            html: `${d.distance.toFixed(1)} mi`,
+                            iconSize: [50, 20]
+                        })
+                    }).addTo(labelLayer);
 
-                        return { name: s.name, distance: distanceMiles, color: color };
-                    });
+                    d.color = color;
+                });
 
-                // Update sidebar with colored list
-                document.getElementById('sidebar').innerHTML = `
+                // Update sidebar
+                document.getElementById('distance-list').innerHTML = `
                     <h3>${store.name}</h3>
                     <ul>${distances.map(d => `
                         <li style="color: ${d.color}">
                             <span style="display: inline-block; width: 10px; height: 10px; background: ${d.color}; margin-right: 5px;"></span>
-                            ${d.name}: ${d.distance} miles
+                            ${d.name}: ${d.distance.toFixed(1)} miles
                         </li>`).join('')}
                     </ul>`;
+
+                // Summary stats
+                let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
+                let maxDistance = distances[distances.length - 1].distance;
+                document.getElementById('stats').innerHTML = `
+                    Avg. Distance: ${avgDistance.toFixed(1)} mi<br>
+                    Farthest: ${maxDistance.toFixed(1)} mi
+                `;
+
+                // Zoom to fit all lines
+                map.fitBounds(lineLayer.getBounds(), { padding: [50, 50] });
             });
         });
     </script>

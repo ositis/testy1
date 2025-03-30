@@ -10,11 +10,12 @@
         body { margin: 0; overflow: hidden; }
         .distance-label { background: rgba(255, 255, 255, 0.7); padding: 2px 5px; font-size: 12px; }
     </style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-polylinedecorator/1.5.0/leaflet.polylineDecorator.js"></script>
 </head>
 <body>
     <div id="map"></div>
     <div id="sidebar">Click a store to see distances</div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         var map = L.map('map').setView([54.0, -2.0], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -29,9 +30,10 @@
             { name: "Belfast", lat: 54.5973, lon: -5.9301 }
         ];
 
-        // Layers for lines and labels
+        // Layers for lines, labels, and arrows
         let lineLayer = L.layerGroup().addTo(map);
         let labelLayer = L.layerGroup().addTo(map);
+        let arrowLayer = L.layerGroup().addTo(map);
 
         // Generate unique colors (scalable for 200 stores)
         function getColor(index, total) {
@@ -47,11 +49,12 @@
             }).addTo(map);
 
             marker.on('click', () => {
-                // Clear previous lines and labels
+                // Clear previous lines, labels, and arrows
                 lineLayer.clearLayers();
                 labelLayer.clearLayers();
+                arrowLayer.clearLayers();
 
-                // Calculate distances and draw lines
+                // Calculate distances and draw lines with arrows
                 let startPoint = L.latLng(store.lat, store.lon);
                 let distances = stores
                     .filter(s => s !== store) // Exclude clicked store
@@ -61,8 +64,13 @@
                         let distanceMiles = (distanceMeters * 0.000621371).toFixed(1);
                         let color = getColor(i, stores.length - 1);
 
-                        // Draw line
-                        L.polyline([startPoint, endPoint], { color: color }).addTo(lineLayer);
+                        // Draw line with arrow
+                        let polyline = L.polyline([startPoint, endPoint], { color: color }).addTo(lineLayer);
+                        L.polylineDecorator(polyline, {
+                            patterns: [
+                                { offset: '50%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { color: color, weight: 2 } }) }
+                            ]
+                        }).addTo(arrowLayer);
 
                         // Add distance label at midpoint
                         let midPoint = [

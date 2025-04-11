@@ -70,19 +70,7 @@
         <div id="amenity-filters">
             <details>
                 <summary>Filters</summary>
-                <label><input type="checkbox" class="amenity" value="Jacuzzi"> Jacuzzi</label>
-                <label><input type="checkbox" class="amenity" value="Free WiFi"> Free WiFi</label>
-                <label><input type="checkbox" class="amenity" value="Swimming Pool"> Swimming Pool</label>
-                <label><input type="checkbox" class="amenity" value="Fitness Center"> Fitness Center</label>
-                <label><input type="checkbox" class="amenity" value="Spa Services"> Spa Services</label>
-                <label><input type="checkbox" class="amenity" value="Room Service"> Room Service</label>
-                <label><input type="checkbox" class="amenity" value="Complimentary Breakfast"> Complimentary Breakfast</label>
-                <label><input type="checkbox" class="amenity" value="Business Center"> Business Center</label>
-                <label><input type="checkbox" class="amenity" value="Airport Shuttle"> Airport Shuttle</label>
-                <label><input type="checkbox" class="amenity" value="Pet-Friendly"> Pet-Friendly</label>
-                <label><input type="checkbox" class="amenity" value="Laundry Service"> Laundry Service</label>
-                <label><input type="checkbox" class="amenity" value="Concierge Service"> Concierge Service</label>
-                <label><input type="checkbox" class="amenity" value="24-Hour Front Desk"> 24-Hour Front Desk</label>
+                <div id="amenity-list"></div> <!-- Dynamic amenities will be inserted here -->
             </details>
         </div>
         <div id="distance-list">Click a store or select from the dropdown to see distances</div>

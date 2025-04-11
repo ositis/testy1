@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require '../vendor/autoload.php'; // Adjusted path
+require '../vendor/autoload.php';
 
 use PostgreSQL\Connection as PgConnection;
 
@@ -17,7 +17,7 @@ try {
     $db = PgConnection::connect(getenv('DATABASE_URL'));
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed']);
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
 
@@ -140,4 +140,3 @@ switch ($method) {
         }
         break;
 }
-?>

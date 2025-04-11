@@ -55,14 +55,15 @@ switch ($method) {
             logActivity($authUser, 'Fetch Amenities');
             echo json_encode($amenities);
         } elseif ($path[1] === 'user-hotels') {
-            $result = pg_query_params($db, 'SELECT h.name FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$authUser]);
+            $username = $_GET['username'] ?? $authUser; // Allow admin to fetch another's hotels
+            $result = pg_query_params($db, 'SELECT h.name FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$username]);
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
                 exit;
             }
             $hotels = array_column(pg_fetch_all($result) ?: [], 'name');
-            logActivity($authUser, 'Fetch User Hotels');
+            logActivity($authUser, 'Fetch User Hotels', "Username: $username");
             echo json_encode($hotels);
         } elseif ($path[1] === 'users' && $path[2] === 'all') {
             $result = pg_query_params($db, 'SELECT username, is_admin FROM users WHERE username != $1', [$authUser]);
@@ -81,7 +82,8 @@ switch ($method) {
         if ($path[1] === 'login') {
             $data = json_decode(file_get_contents('php://input'), true);
             $username = $data['username'] ?? '';
-            $result = pg_query_params($db, 'SELECT username FROM users WHERE username = $1', [$username]);
+            $password = $data['password'] ?? '';
+            $result = pg_query_params($db, 'SELECT username FROM users WHERE username = $1 AND password = $2', [$username, $password]);
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);

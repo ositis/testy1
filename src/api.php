@@ -45,16 +45,15 @@ switch ($method) {
             logActivity($authUser, 'Fetch Hotels');
             echo json_encode($hotels);
         } elseif ($path[1] === 'amenities') {
-            $result = pg_query($db, "SELECT DISTINCT jsonb_array_elements_text(amenities) AS amenity FROM hotels");
+            $result = pg_query($db, 'SELECT name AS amenity FROM amenities ORDER BY name');
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
                 exit;
             }
             $amenities = array_column(pg_fetch_all($result) ?: [], 'amenity');
-            sort($amenities);
             logActivity($authUser, 'Fetch Amenities');
-            echo json_encode(array_values(array_unique($amenities)));
+            echo json_encode($amenities);
         } elseif ($path[1] === 'user-hotels') {
             $result = pg_query_params($db, 'SELECT h.name FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$authUser]);
             if ($result === false) {

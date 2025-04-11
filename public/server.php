@@ -52,3 +52,10 @@ if (strpos($uri, '/api') === 0) {
 } else {
     require 'index.php';
 }
+
+try {
+    $db = PgConnection::connect(getenv('DATABASE_URL'));
+    echo "DB connected";
+} catch (Exception $e) {
+    echo "DB error: " . $e->getMessage();
+}

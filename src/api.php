@@ -1,18 +1,9 @@
 <?php
 header('Content-Type: application/json');
-ini_set('display_errors', '0'); // Suppress error output
+ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 require '../vendor/autoload.php';
-
-function logActivity($username, $action, $details = '') {
-    $logDir = __DIR__ . '/../logs';
-    if (!file_exists($logDir)) mkdir($logDir, 0777, true);
-    $logFile = "$logDir/activity.log";
-    $timestamp = date('Y-m-d H:i:s');
-    $line = "$timestamp\t$username\t$action\t$details\n";
-    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
-}
 
 try {
     $db = pg_connect(getenv('DATABASE_URL'));

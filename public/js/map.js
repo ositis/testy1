@@ -12,6 +12,15 @@ let lineLayer = L.layerGroup().addTo(map);
 let labelLayer = L.layerGroup().addTo(map);
 const storeSelect = document.getElementById('store-select');
 
+function logAction(action, details = '') {
+    const username = localStorage.getItem('username') || 'unknown';
+    fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, action, details })
+    }).catch(err => console.error('Logging failed:', err));
+}
+
 function getColor(index, total) {
     if (total <= 1) return `hsl(120, 70%, 50%)`;
     let hue = (1 - (index / (total - 1))) * 120;
@@ -153,17 +162,27 @@ function updateMap() {
     if (selectedStore === null) {
         document.getElementById('distance-list').innerHTML = `<h3>No store selected</h3><p>Select a store or enter a custom address.</p>`;
         document.getElementById('stats').innerHTML = '';
+        logAction('Map Update', 'No store selected');
     } else if (showAll) {
-        // Simplified for brevity; implement drawAllLines if needed
         renderLinesForStore(selectedStore, filteredStores, showLabels);
+        logAction('Map Update', `Show all lines for ${selectedStore.name}`);
     } else {
         renderLinesForStore(selectedStore, filteredStores, showLabels);
+        logAction('Map Update', `Show lines for ${selectedStore.name}`);
     }
 }
 
 async function initMap() {
-    const response = await fetch('/api/hotels');
-    stores = await response.json();
+    logAction('Map Loaded');
+    const hotelResponse = await fetch('/api/hotels');
+    if (!hotelResponse.ok) {
+        const errorText = await hotelResponse.text();
+        console.error('Failed to fetch hotels:', hotelResponse.status, errorText);
+        logAction('Fetch Hotels Failed', `Status: ${hotelResponse.status}, Response: ${errorText}`);
+        return;
+    }
+    stores = await hotelResponse.json();
+
     storeSelect.innerHTML = "";
     storeSelect.appendChild(Object.assign(document.createElement('option'), { value: "none", text: "None" }));
     stores.forEach((store, index) => {
@@ -171,19 +190,36 @@ async function initMap() {
     });
     storeSelect.appendChild(Object.assign(document.createElement('option'), { value: "custom", text: "Custom Address" }));
 
+    const amenitiesResponse = await fetch('/api/amenities');
+    if (!amenitiesResponse.ok) {
+        console.error('Failed to fetch amenities:', amenitiesResponse.status, await amenitiesResponse.text());
+        logAction('Fetch Amenities Failed', `Status: ${amenitiesResponse.status}`);
+        return;
+    }
+    const amenities = await amenitiesResponse.json();
+    const amenityList = document.getElementById('amenity-list');
+    amenities.forEach(amenity => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" class="amenity" value="${amenity}"> ${amenity}`;
+        amenityList.appendChild(label);
+    });
+
     storeSelect.addEventListener('change', function() {
         let value = this.value;
         if (value === "none") {
             selectedStore = null;
             document.getElementById('custom-address-container').style.display = 'none';
             if (customMarker) map.removeLayer(customMarker); customMarker = null;
+            logAction('Store Select', 'None selected');
         } else if (value === "custom") {
             document.getElementById('custom-address-container').style.display = 'block';
             if (customMarker) selectedStore = { name: "Custom Address", lat: customMarker.getLatLng().lat, lon: customMarker.getLatLng().lng };
+            logAction('Store Select', 'Custom address selected');
         } else {
             document.getElementById('custom-address-container').style.display = 'none';
             selectedStore = stores[parseInt(value)];
             if (customMarker) map.removeLayer(customMarker); customMarker = null;
+            logAction('Store Select', `Selected ${selectedStore.name}`);
         }
         updateMap();
         updateLocationIndicator(this.options[this.selectedIndex].text);
@@ -199,6 +235,7 @@ async function initMap() {
                     .addTo(map)
                     .bindTooltip("Custom Address: " + address, { permanent: false, direction: 'top' });
                 selectedStore = { name: "Custom Address: " + address, lat: location.lat, lon: location.lon };
+                logAction('Set Custom Address', address);
                 updateMap();
             }
         }
@@ -215,6 +252,7 @@ async function initMap() {
                         .addTo(map)
                         .bindTooltip("Custom Address: " + address, { permanent: false, direction: 'top' });
                     selectedStore = { name: "Custom Address: " + address, lat: location.lat, lon: location.lon };
+                    logAction('Set Custom Address (Enter)', address);
                     updateMap();
                 }
             }
@@ -222,9 +260,11 @@ async function initMap() {
     });
 
     ['show-all-lines', 'show-distance-labels', 'top3-toggle', 'auto-tooltips', 'hide-unavailable-amenities'].forEach(id => {
-        document.getElementById(id).addEventListener('change', updateMap);
+        document.getElementById(id).addEventListener('change', () => {
+            logAction('Toggle Change', `${id} set to ${document.getElementById(id).checked}`);
+            updateMap();
+        });
     });
-    document.querySelectorAll('.amenity').forEach(cb => cb.addEventListener('change', updateMap));
 
     storeMarkers = stores.map((store, index) => {
         let marker = L.circleMarker([store.lat, store.lon], { color: 'blue', radius: 8 }).addTo(map);
@@ -234,6 +274,7 @@ async function initMap() {
             storeSelect.value = index;
             document.getElementById('custom-address-container').style.display = 'none';
             if (customMarker) map.removeLayer(customMarker); customMarker = null;
+            logAction('Marker Click', `Selected ${store.name}`);
             updateMap();
         });
         return marker;
@@ -242,6 +283,13 @@ async function initMap() {
     selectedStore = null;
     storeSelect.value = "none";
     updateMap();
+
+    setTimeout(() => {
+        document.querySelectorAll('.amenity').forEach(cb => cb.addEventListener('change', () => {
+            logAction('Amenity Filter Change', `${cb.value} set to ${cb.checked}`);
+            updateMap();
+        }));
+    }, 100);
 }
 
 function captureMap() {
@@ -252,13 +300,18 @@ function captureMap() {
             link.download = 'map-screenshot.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
+            logAction('Capture Map');
         })
-        .catch(err => alert('Failed to capture screenshot.'));
+        .catch(err => {
+            console.error('Screenshot failed:', err);
+            alert('Failed to capture screenshot.');
+        });
 }
 
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('visible');
     document.getElementById('sidebar-toggle').classList.toggle('active');
+    logAction('Toggle Sidebar', `Sidebar ${document.getElementById('sidebar').classList.contains('visible') ? 'opened' : 'closed'}`);
 }
 
 function updateLocationIndicator(storeName) {

@@ -1,1 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UK Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-geometryutil@0.10.2/dist/leaflet.geometryutil.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eaeaea;
+        }
+        #map {
+            height: 100vh;
+            width: 70%;
+            float: left;
+        }
+        #sidebar-toggle {
+            position: fixed;
+            right: 10px;
+            top: 10px;
+            z-index: 1000;
+            cursor: pointer;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        .burger-line {
+            width: 25px;
+            height: 3px;
+            background-color: #333;
+            margin: 4px 0;
+            transition: 0.4s;
+        }
+        
+        #sidebar-toggle.active .burger-line:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+        }
+        
+        #sidebar-toggle.active .burger-line:nth-child(2) {
+            opacity: 0;
+        }
+        
+        #sidebar-toggle.active .burger-line:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+        }
+        
+        #location-indicator {
+            position: fixed;
+            right: 60px;
+            top: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+            font-size: 14px;
+            display: none;
+        }
+        
+        #sidebar:not(.visible) ~ #location-indicator {
+            display: block;
+        }
+        
+        #sidebar {
+            height: 100vh;
+            width: 30%;
+            float: right;
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            box-sizing: border-box;
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        #sidebar-toggle {
+            display: block;
+        }
+        #sidebar {
+            transform: translateX(100%);
+            position: fixed;
+            right: 0;
+            top: 0;
+            z-index: 999;
+        }
+        #sidebar.visible {
+            transform: translateX(0);
+        }
+        #map {
+            width: 100%;
+        }
+        
+        @media (min-width: 601px) {
+            #sidebar.visible {
+                width: 30%;
+            }
+            #map {
+                width: 100%;
+            }
+            #sidebar.visible + #map {
+                width: 70%;
+            }
+        }
+        #stats {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        .distance-label {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 3px 7px;
+            font-size: 12px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            font-size: 14px;
+            background-color: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        label {
+            font-size: 14px;
+            color: #333;
+        }
+        select {
+            padding: 5px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #custom-address-container {
+            display: none;
+            margin-bottom: 10px;
+        }
+        #custom-address-input {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+        #settings, #amenity-filters {
+            margin: 10px 0;
+        }
+        #settings details, #amenity-filters details {
+            margin-bottom: 10px;
+        }
+        #settings summary, #amenity-filters summary {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            width: 100%;
+            padding: 4px 0;
+        }
+        .toggle-container label {
+            width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 20px !important;
+            height: 16px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 16px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 8px;
+            width: 8px;
+            left: 2px;
+            top: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(6px);
+        }
+        #amenity-filters label {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="location-indicator"></div>
+    <div id="sidebar-toggle" onclick="toggleSidebar()">
+        <div class="burger-line"></div>
+        <div class="burger-line"></div>
+        <div class="burger-line"></div>
+    </div>
+    <div id="sidebar">
+        <div>
+            <label for="store-select">Select Store: </label>
+            <select id="store-select"></select>
+        </div>
+        <div id="custom-address-container">
+            <input type="text" id="custom-address-input" placeholder="Enter UK address (e.g., 10 Downing Street, London)">
+            <button id="submit-address">Set Address</button>
+        </div>
+        <div id="settings">
+            <details>
+                <summary>Settings</summary>
+                <div class="toggle-container">
+                    <label for="hide-unavailable-amenities">Hide Unavailable Amenities</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="hide-unavailable-amenities" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <label for="show-all-lines">Show All Lines</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="show-all-lines">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <label for="show-distance-labels">Show Distance Labels</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="show-distance-labels">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <label for="top3-toggle">Show Top 3 Nearest Only</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="top3-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <label for="auto-tooltips">Show Disciplines for Top 3</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-tooltips" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </details>
+        </div>
+        <div id="amenity-filters">
+            <details>
+                <summary>Filters</summary>
+                <label><input type="checkbox" class="amenity" value="Jacuzzi"> Jacuzzi</label>
+                <label><input type="checkbox" class="amenity" value="Free WiFi"> Free WiFi</label>
+                <label><input type="checkbox" class="amenity" value="Swimming Pool"> Swimming Pool</label>
+                <label><input type="checkbox" class="amenity" value="Fitness Center"> Fitness Center</label>
+                <label><input type="checkbox" class="amenity" value="Spa Services"> Spa Services</label>
+                <label><input type="checkbox" class="amenity" value="Room Service"> Room Service</label>
+                <label><input type="checkbox" class="amenity" value="Complimentary Breakfast"> Complimentary Breakfast</label>
+                <label><input type="checkbox" class="amenity" value="Business Center"> Business Center</label>
+                <label><input type="checkbox" class="amenity" value="Airport Shuttle"> Airport Shuttle</label>
+                <label><input type="checkbox" class="amenity" value="Pet-Friendly"> Pet-Friendly</label>
+                <label><input type="checkbox" class="amenity" value="Laundry Service"> Laundry Service</label>
+                <label><input type="checkbox" class="amenity" value="Concierge Service"> Concierge Service</label>
+                <label><input type="checkbox" class="amenity" value="24-Hour Front Desk"> 24-Hour Front Desk</label>
+            </details>
+        </div>
+        <div id="distance-list">Click a store or select from the dropdown to see distances</div>
+        <div id="stats"></div>
+        <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
+    </div>
 
+    <script>
+        var map = L.map('map').setView([54.0, -2.0], 6);
+        const baseLayers = {
+            "Standard": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors | <button onclick="captureMap()" style="background: none; border: none; color: #0078A8; cursor: pointer; font-size: 12px;">Pic</button>',
+                maxZoom: 19
+            })
+        };
+        baseLayers["Standard"].addTo(map);
+
+        const defaultStores = [
+            { "name": "The Grand Hotel", "lat": 51.5074, "lon": -0.1278, "amenities": ["Free WiFi", "Swimming Pool", "Spa Services", "Fitness Center", "Room Service", "Complimentary Breakfast"], "availability": { "Free WiFi": true, "Swimming Pool": false, "Spa Services": true, "Fitness Center": false, "Room Service": true, "Complimentary Breakfast": false } },
+            { "name": "Seaside Retreat", "lat": 50.7174, "lon": -3.5333, "amenities": ["Jacuzzi", "Beach Access", "Pet-Friendly", "Laundry Service", "24-Hour Front Desk"], "availability": { "Jacuzzi": true, "Beach Access": false, "Pet-Friendly": true, "Laundry Service": false, "24-Hour Front Desk": true } },
+            { "name": "Mountain View Inn", "lat": 54.5973, "lon": -5.9301, "amenities": ["Complimentary Breakfast", "Fitness Center", "Business Center", "Free WiFi", "Room Service"], "availability": { "Complimentary Breakfast": true, "Fitness Center": false, "Business Center": true, "Free WiFi": false, "Room Service": true } },
+            { "name": "City Center Suites", "lat": 51.4545, "lon": -2.5879, "amenities": ["Free WiFi", "Concierge Service", "Laundry Service", "24-Hour Front Desk", "Business Center"], "availability": { "Free WiFi": true, "Concierge Service": false, "Laundry Service": true, "24-Hour Front Desk": false, "Business Center": true } },
+            { "name": "Countryside Lodge", "lat": 52.2053, "lon": 0.1218, "amenities": ["Complimentary Breakfast", "Spa Services", "Jacuzzi", "Fitness Center", "Pet-Friendly"], "availability": { "Complimentary Breakfast": true, "Spa Services": false, "Jacuzzi": true, "Fitness Center": false, "Pet-Friendly": true } },
+            { "name": "Historic Castle Hotel", "lat": 55.9533, "lon": -3.1883, "amenities": ["Free WiFi", "Room Service", "Concierge Service", "Laundry Service", "Swimming Pool"], "availability": { "Free WiFi": true, "Room Service": false, "Concierge Service": true, "Laundry Service": false, "Swimming Pool": true } },
+            { "name": "Luxury Riverside Hotel", "lat": 51.4816, "lon": -3.1791, "amenities": ["Spa Services", "Fitness Center", "Complimentary Breakfast", "Business Center", "Free WiFi"], "availability": { "Spa Services": true, "Fitness Center": false, "Complimentary Breakfast": true, "Business Center": false, "Free WiFi": true } },
+            { "name": "Coastal Escape", "lat": 50.3755, "lon": -4.1427, "amenities": ["Beach Access", "Jacuzzi", "Room Service", "Pet-Friendly", "24-Hour Front Desk"], "availability": { "Beach Access": true, "Jacuzzi": false, "Room Service": true, "Pet-Friendly": false, "24-Hour Front Desk": true } },
+            { "name": "Urban Chic Hotel", "lat": 51.5155, "lon": -0.0922, "amenities": ["Free WiFi", "Fitness Center", "Concierge Service", "Laundry Service", "Business Center"], "availability": { "Free WiFi": true, "Fitness Center": false, "Concierge Service": true, "Laundry Service": false, "Business Center": true } },
+            { "name": "Rustic Farm Stay", "lat": 53.4084, "lon": -2.9916, "amenities": ["Complimentary Breakfast", "Pet-Friendly", "Spa Services", "Jacuzzi", "24-Hour Front Desk"], "availability": { "Complimentary Breakfast": true, "Pet-Friendly": false, "Spa Services": true, "Jacuzzi": false, "24-Hour Front Desk": true } },
+            { "name": "Luxury Boutique Hotel", "lat": 51.5072, "lon": -0.1276, "amenities": ["Free WiFi", "Room Service", "Concierge Service", "Fitness Center", "Spa Services"], "availability": { "Free WiFi": true, "Room Service": false, "Concierge Service": true, "Fitness Center": false, "Spa Services": true } },
+            { "name": "Countryside Retreat", "lat": 52.4862, "lon": -1.8904, "amenities": ["Complimentary Breakfast", "Swimming Pool", "Jacuzzi", "Laundry Service", "Pet-Friendly"], "availability": { "Complimentary Breakfast": true, "Swimming Pool": false, "Jacuzzi": true, "Laundry Service": false, "Pet-Friendly": true } },
+            { "name": "Cityscape Hotel", "lat": 51.5074, "lon": -0.1278, "amenities": ["Free WiFi", "Business Center", "Fitness Center", "Room Service", "Concierge Service"], "availability": { "Free WiFi": true, "Business Center": false, "Fitness Center": true, "Room Service": false, "Concierge Service": true } }
+        ];
+
+        let stores = [...defaultStores];
+        let selectedStore = null;
+        let customMarker = null;
+        let storeMarkers = [];
+        let lineLayer = L.layerGroup().addTo(map);
+        let labelLayer = L.layerGroup().addTo(map);
+        const storeSelect = document.getElementById('store-select');
+
+        function getColor(index, total) {
+            if (total <= 1) return `hsl(120, 70%, 50%)`;
+            let hue = (1 - (index / (total - 1))) * 120;
+            return `hsl(${hue}, 70%, 50%)`;
+        }
+
+        function getFilteredStores(selectedAmenities) {
+            let hideUnavailable = document.getElementById('hide-unavailable-amenities').checked;
+            let filteredStores = stores;
+
+            if (selectedAmenities.length > 0) {
+                filteredStores = filteredStores.filter(store =>
+                    selectedAmenities.every(amenity => store.amenities.includes(amenity))
+                );
+            }
+
+            if (hideUnavailable) {
+                filteredStores = filteredStores.filter(store => {
+                    return selectedAmenities.every(amenity => {
+                        return store.availability && store.availability[amenity] !== false;
+                    });
+                });
+            }
+
+            return filteredStores;
+        }
+
+        function getDistancesForStore(store, filteredStores) {
+            let startPoint = L.latLng(store.lat, store.lon);
+            return filteredStores
+                .filter(s => s.name !== store.name)
+                .map(s => {
+                    let endPoint = L.latLng(s.lat, s.lon);
+                    let distanceMeters = startPoint.distanceTo(endPoint);
+                    let distanceMiles = distanceMeters * 0.000621371;
+                    return { name: s.name, lat: s.lat, lon: s.lon, distance: distanceMiles, amenities: s.amenities };
+                })
+                .sort((a, b) => a.distance - b.distance);
+        }
+
+        function updateTooltip(marker, store, distanceData) {
+            let distanceText = distanceData ? `Distance: ${distanceData.distance.toFixed(1)} miles` : "Not calculated";
+            let amenitiesText = store.amenities.map(amenity => {
+                let availability = store.availability[amenity] ? "[O]" : "[X]";
+                let color = store.availability[amenity] ? "green" : "red";
+                return `${amenity} <span style="color:${color}">${availability}</span>`;
+            }).join("<br>");
+            marker.bindTooltip(`
+                <div class="tooltip-content">
+                    <div class="tooltip-name">${store.name}</div>
+                    <div class="tooltip-distance">${distanceText}</div>
+                    <hr>
+                    <div class="tooltip-amenities">Amenities:<br>${amenitiesText}</div>
+                </div>
+            `, { direction: 'top', permanent: false, className: 'leaflet-tooltip' });
+        }
+
+        function drawStoreLines(store, filteredStores, showLabels = true) {
+            let showTop3 = document.getElementById('top3-toggle').checked;
+            let showAutoTooltips = document.getElementById('auto-tooltips').checked;
+            let distances = getDistancesForStore(store, filteredStores);
+            let displayDistances = showTop3 ? distances.slice(0, 3) : distances;
+
+            let startPoint = L.latLng(store.lat, store.lon);
+            displayDistances.forEach((d, i) => {
+                let color = getColor(i, displayDistances.length);
+                let endPoint = L.latLng(d.lat, d.lon);
+                let polyline = L.polyline([startPoint, endPoint], {
+                    color: color,
+                    weight: i === 0 ? 6 : 4,
+                    opacity: 0.8,
+                    lineCap: 'round'
+                }).addTo(lineLayer);
+
+                if (showLabels) {
+                    let midPoint = [
+                        (startPoint.lat + endPoint.lat) / 2,
+                        (startPoint.lng + endPoint.lng) / 2
+                    ];
+                    L.marker(midPoint, {
+                        icon: L.divIcon({
+                            className: 'distance-label',
+                            html: `${d.distance.toFixed(1)} mi`,
+                            iconSize: [50, 20]
+                        })
+                    }).addTo(labelLayer);
+                }
+            });
+
+            storeMarkers.forEach(marker => {
+                let storeData = stores.find(s => s.lat === marker.getLatLng().lat && s.lon === marker.getLatLng().lng);
+                let distanceData = distances.find(d => d.name === storeData.name);
+                if (showTop3 && !displayDistances.some(d => d.name === storeData.name) && !showAutoTooltips) {
+                    marker.closeTooltip();
+                    marker.unbindTooltip();
+                } else {
+                    updateTooltip(marker, storeData, distanceData);
+                    if (showAutoTooltips && displayDistances.some(d => d.name === storeData.name)) {
+                        marker.openTooltip();
+                    }
+                }
+            });
+
+            return { distances, displayDistances };
+        }
+
+        function drawAllLines(filteredStores, showLabels = true) {
+            filteredStores.forEach(store => {
+                let startPoint = L.latLng(store.lat, store.lon);
+                let distances = getDistancesForStore(store, filteredStores);
+                distances.forEach((d, i) => {
+                    let color = getColor(i, distances.length);
+                    let endPoint = L.latLng(d.lat, d.lon);
+                    L.polyline([startPoint, endPoint], {
+                        color: color,
+                        weight: 4,
+                        opacity: 0.8,
+                        lineCap: 'round'
+                    }).addTo(lineLayer);
+
+                    if (showLabels) {
+                        let midPoint = [
+                            (startPoint.lat + endPoint.lat) / 2,
+                            (startPoint.lng + endPoint.lng) / 2
+                        ];
+                        L.marker(midPoint, {
+                            icon: L.divIcon({
+                                className: 'distance-label',
+                                html: `${d.distance.toFixed(1)} mi`,
+                                iconSize: [50, 20]
+                            })
+                        }).addTo(labelLayer);
+                    }
+                });
+            });
+
+            storeMarkers.forEach(marker => {
+                let store = stores.find(s => s.lat === marker.getLatLng().lat && s.lon === marker.getLatLng().lng);
+                updateTooltip(marker, store, null);
+            });
+        }
+
+        function renderLinesForStore(store, filteredStores, showLabels = true) {
+            lineLayer.clearLayers();
+            labelLayer.clearLayers();
+
+            let { distances, displayDistances } = drawStoreLines(store, filteredStores, showLabels);
+            if (distances.length === 0) {
+                document.getElementById('distance-list').innerHTML = `
+                    <h3>${store.name}</h3>
+                    <p>No other stores match the selected filters.</p>`;
+                document.getElementById('stats').innerHTML = '';
+                return;
+            }
+
+            let avgDistance = distances.reduce((sum, d) => sum + d.distance, 0) / distances.length;
+            let maxDistance = distances[distances.length - 1].distance;
+            let nearestStore = distances[0];
+
+            document.getElementById('distance-list').innerHTML = `
+                <h3>${store.name}</h3>
+                <ul>${displayDistances.map((d, i) => `
+                    <li style="color: ${getColor(i, displayDistances.length)}">
+                        <span style="display: inline-block; width: 10px; height: 10px; background: ${getColor(i, displayDistances.length)}; margin-right: 5px;"></span>
+                        ${d.name}: ${d.distance.toFixed(1)} miles
+                    </li>`).join('')}
+                </ul>`;
+
+            document.getElementById('stats').innerHTML = `
+                Nearest: ${nearestStore.name} (${nearestStore.distance.toFixed(1)} mi)<br>
+                Avg. Distance: ${avgDistance.toFixed(1)} mi<br>
+                Farthest: ${maxDistance.toFixed(1)} mi
+            `;
+
+            if (lineLayer.getLayers().length > 0) {
+                const bounds = L.latLngBounds(lineLayer.getLayers().map(layer => layer.getLatLngs()).flat());
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+        }
+
+        function renderAllLines(filteredStores, showLabels = true) {
+            lineLayer.clearLayers();
+            labelLayer.clearLayers();
+            drawAllLines(filteredStores, showLabels);
+
+            document.getElementById('distance-list').innerHTML = `
+                <h3>All stores selected</h3>
+                <p>Displaying all store-to-store lines.</p>`;
+            document.getElementById('stats').innerHTML = '';
+
+            if (lineLayer.getLayers().length > 0) {
+                const bounds = L.latLngBounds(lineLayer.getLayers().map(layer => layer.getLatLngs()).flat());
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+        }
+
+        async function geocodeAddress(address) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=gb`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.length > 0) {
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                } else {
+                    alert("Address not found in the UK. Please try again.");
+                    return null;
+                }
+            } catch (error) {
+                console.error("Geocoding error:", error);
+                alert("Error geocoding address. Please try again.");
+                return null;
+            }
+        }
+
+        function updateMap() {
+            let showAll = document.getElementById('show-all-lines').checked;
+            let showLabels = document.getElementById('show-distance-labels').checked;
+            let selectedAmenities = Array.from(document.querySelectorAll('.amenity:checked'))
+                .map(cb => cb.value);
+            let filteredStores = getFilteredStores(selectedAmenities);
+
+            lineLayer.clearLayers();
+            labelLayer.clearLayers();
+
+            if (selectedStore === null) {
+                document.getElementById('distance-list').innerHTML = `
+                    <h3>No store selected</h3>
+                    <p>Select a store or enter a custom address to see distances.</p>`;
+                document.getElementById('stats').innerHTML = '';
+            } else if (showAll) {
+                renderAllLines(filteredStores, showLabels);
+            } else {
+                renderLinesForStore(selectedStore, filteredStores, showLabels);
+            }
+        }
+
+        function initMap() {
+            storeSelect.innerHTML = "";
+            let noneOption = document.createElement('option');
+            noneOption.value = "none";
+            noneOption.text = "None";
+            storeSelect.appendChild(noneOption);
+            stores.forEach((store, index) => {
+                let option = document.createElement('option');
+                option.value = index;
+                option.text = store.name;
+                storeSelect.appendChild(option);
+            });
+            let customOption = document.createElement('option');
+            customOption.value = "custom";
+            customOption.text = "Custom Address";
+            storeSelect.appendChild(customOption);
+
+            storeSelect.addEventListener('change', function() {
+                let value = this.value;
+                if (value === "none") {
+                    selectedStore = null;
+                    document.getElementById('custom-address-container').style.display = 'none';
+                    if (customMarker) {
+                        map.removeLayer(customMarker);
+                        customMarker = null;
+                    }
+                    updateMap();
+                } else if (value === "custom") {
+                    document.getElementById('custom-address-container').style.display = 'block';
+                    if (customMarker) {
+                        selectedStore = { name: "Custom Address", lat: customMarker.getLatLng().lat, lon: customMarker.getLatLng().lng };
+                        updateMap();
+                    }
+                } else {
+                    document.getElementById('custom-address-container').style.display = 'none';
+                    let index = parseInt(value);
+                    selectedStore = stores[index];
+                    if (customMarker) {
+                        map.removeLayer(customMarker);
+                        customMarker = null;
+                    }
+                    updateMap();
+                }
+                updateLocationIndicator(this.options[this.selectedIndex].text);
+            });
+
+            document.getElementById('submit-address').addEventListener('click', async () => {
+                let address = document.getElementById('custom-address-input').value;
+                if (address) {
+                    let location = await geocodeAddress(address);
+                    if (location) {
+                        if (customMarker) {
+                            map.removeLayer(customMarker);
+                        }
+                        customMarker = L.circleMarker([location.lat, location.lon], {
+                            color: 'purple',
+                            radius: 8
+                        }).addTo(map)
+                        .bindTooltip("Custom Address: " + address, { permanent: false, direction: 'top' });
+                        selectedStore = { name: "Custom Address: " + address, lat: location.lat, lon: location.lon };
+                        updateMap();
+                    }
+                }
+            });
+
+            document.getElementById('custom-address-input').addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter') {
+                    let address = document.getElementById('custom-address-input').value;
+                    if (address) {
+                        let location = await geocodeAddress(address);
+                        if (location) {
+                            if (customMarker) {
+                                map.removeLayer(customMarker);
+                            }
+                            customMarker = L.circleMarker([location.lat, location.lon], {
+                                color: 'purple',
+                                radius: 8
+                            }).addTo(map)
+                            .bindTooltip("Custom Address: " + address, { permanent: false, direction: 'top' });
+                            selectedStore = { name: "Custom Address: " + address, lat: location.lat, lon: location.lon };
+                            updateMap();
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('show-all-lines').addEventListener('change', updateMap);
+            document.getElementById('show-distance-labels').addEventListener('change', updateMap);
+            document.getElementById('top3-toggle').addEventListener('change', updateMap);
+            document.getElementById('auto-tooltips').addEventListener('change', updateMap);
+            document.getElementById('hide-unavailable-amenities').addEventListener('change', updateMap);
+            document.querySelectorAll('.amenity').forEach(cb => cb.addEventListener('change', updateMap));
+
+            storeMarkers = stores.map((store, index) => {
+                let marker = L.circleMarker([store.lat, store.lon], {
+                    color: 'blue',
+                    radius: 8
+                }).addTo(map);
+                updateTooltip(marker, store, null);
+
+                marker.on('click', () => {
+                    selectedStore = store;
+                    storeSelect.value = index;
+                    document.getElementById('custom-address-container').style.display = 'none';
+                    if (customMarker) {
+                        map.removeLayer(customMarker);
+                        customMarker = null;
+                    }
+                    updateMap();
+                });
+
+                return marker;
+            });
+
+            selectedStore = null;
+            storeSelect.value = "none";
+            updateMap();
+        }
+
+        function captureMap() {
+            if (!map || !map.getCenter()) {
+                alert('Please wait for the map to fully load before capturing.');
+                return;
+            }
+
+            html2canvas(document.getElementById('map'), {
+                useCORS: true,
+                scale: 2,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'map-screenshot.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            }).catch(err => {
+                console.error('Screenshot error:', err);
+                alert('Failed to capture screenshot. Please try again.');
+            });
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('sidebar-toggle');
+            sidebar.classList.toggle('visible');
+            toggle.classList.toggle('active');
+        }
+
+        function updateLocationIndicator(storeName) {
+            const indicator = document.getElementById('location-indicator');
+            if (indicator) {
+                indicator.textContent = storeName;
+                indicator.style.display = 'none';
+                indicator.offsetHeight;
+                indicator.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>

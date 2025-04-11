@@ -1,8 +1,6 @@
 <?php
 require '../vendor/autoload.php';
 
-use PostgreSQL\Connection as PgConnection;
-
 function logActivity($username, $action, $details = '') {
     $logDir = __DIR__ . '/../logs';
     if (!file_exists($logDir)) mkdir($logDir, 0777, true);
@@ -32,7 +30,10 @@ function checkAuth($db) {
 }
 
 try {
-    $db = PgConnection::connect(getenv('DATABASE_URL'));
+    $db = pg_connect(getenv('DATABASE_URL')); // Use pg_connect instead
+    if ($db === false) {
+        throw new Exception('Failed to connect to database');
+    }
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
@@ -51,11 +52,4 @@ if (strpos($uri, '/api') === 0) {
     require '../admin.php';
 } else {
     require 'index.php';
-}
-
-try {
-    $db = PgConnection::connect(getenv('DATABASE_URL'));
-    echo "DB connected";
-} catch (Exception $e) {
-    echo "DB error: " . $e->getMessage();
 }

@@ -142,26 +142,27 @@ switch ($method) {
     case 'PUT':
         if ($path[1] === 'hotels' && isset($path[2])) {
             $data = json_decode(file_get_contents('php://input'), true);
-            $name = $path[2];
-            error_log("PUT /api/hotels/$name payload: " . json_encode($data)); // Debug
+            $name = trim(urldecode($path[2])); // Decode and trim whitespace
+            error_log("PUT /api/hotels/$name payload: " . json_encode($data));
             $amenities = json_encode($data['amenities']);
             $availability = json_encode($data['availability']);
-            $result = pg_query_params($db, 'UPDATE hotels SET amenities = $1, availability = $2 WHERE name = $3', [$amenities, $availability, $name]);
+            // Use ILIKE for case-insensitive comparison and trim
+            $result = pg_query_params($db, 'UPDATE hotels SET amenities = $1, availability = $2 WHERE TRIM(name) ILIKE $3', [$amenities, $availability, $name]);
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
-                error_log("PUT /api/hotels/$name failed: " . pg_last_error($db)); // Debug
+                error_log("PUT /api/hotels/$name failed: " . pg_last_error($db));
                 exit;
             }
             $affectedRows = pg_affected_rows($result);
-            error_log("PUT /api/hotels/$name affected rows: $affectedRows"); // Debug
+            error_log("PUT /api/hotels/$name affected rows: $affectedRows");
             if ($affectedRows > 0) {
                 logActivity($authUser, 'Update Hotel', "Hotel: $name");
                 echo json_encode(['success' => true]);
             } else {
                 http_response_code(500);
                 echo json_encode(['error' => 'Update failed: No rows affected']);
-                error_log("PUT /api/hotels/$name: No rows affected"); // Debug
+                error_log("PUT /api/hotels/$name: No rows affected");
             }
         }
         break;

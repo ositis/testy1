@@ -45,7 +45,7 @@ switch ($method) {
             logActivity($authUser, 'Fetch Hotels');
             echo json_encode($hotels);
         } elseif ($path[1] === 'amenities') {
-            $result = pg_query($db, 'SELECT DISTINCT unnest(amenities::jsonb) AS amenity FROM hotels');
+            $result = pg_query($db, "SELECT DISTINCT jsonb_array_elements_text(amenities) AS amenity FROM hotels");
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);

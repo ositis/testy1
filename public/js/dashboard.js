@@ -1,11 +1,6 @@
 let currentHotel = null;
 let debounceTimeout = null;
 
-function logout() {
-    window.location.href = '/login'; // Redirect to login page
-    logAction('Logout');
-}
-
 function logAction(action, details = '') {
     fetch('/api/log', {
         method: 'POST',

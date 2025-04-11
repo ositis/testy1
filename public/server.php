@@ -56,7 +56,7 @@ $uri = $_SERVER['REQUEST_URI'];
 if (strpos($uri, '/api') === 0) {
     require '../src/api.php';
 } elseif ($uri === '/dashboard') {
-    require '../dashboard.php';
+    require 'dashboard.php';
 } elseif ($uri === '/admin') {
     require '../admin.php';
 } else {

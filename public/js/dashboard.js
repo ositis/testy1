@@ -49,19 +49,25 @@ function saveChangesDebounced() {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(async () => {
         try {
+            const payload = { amenities: currentHotel.amenities, availability: currentHotel.availability };
+            console.log('Sending payload:', payload); // Debug
             const response = await fetch(`/api/hotels/${encodeURIComponent(currentHotel.name)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amenities: currentHotel.amenities, availability: currentHotel.availability })
+                body: JSON.stringify(payload)
             });
+            console.log('Response status:', response.status); // Debug
             if (response.ok) {
                 statusDiv.textContent = 'Saved successfully';
                 logAction('Save Changes', currentHotel.name);
             } else {
-                statusDiv.textContent = 'Failed to save: ' + await response.text();
+                const errorText = await response.text();
+                statusDiv.textContent = 'Failed to save: ' + errorText;
+                console.log('Error response:', errorText); // Debug
             }
         } catch (err) {
             statusDiv.textContent = 'Error: ' + err.message;
+            console.log('Fetch error:', err); // Debug
         }
     }, 1000);
 }
@@ -80,7 +86,7 @@ function initDashboard() {
 
     const hotelSelect = document.getElementById('hotel-select');
     const editorDiv = document.getElementById('editor');
-    editorDiv.style.display = 'block'; // Ensure editor is visible
+    editorDiv.style.display = 'block';
 
     currentHotel = JSON.parse(hotelSelect.value);
     document.getElementById('hotel-name').textContent = currentHotel.name;

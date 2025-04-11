@@ -1,8 +1,9 @@
 <?php
 header('Content-Type: application/json');
-require '../vendor/autoload.php';
+ini_set('display_errors', '0'); // Suppress error output
+error_reporting(E_ALL);
 
-use PostgreSQL\Connection as PgConnection;
+require '../vendor/autoload.php';
 
 function logActivity($username, $action, $details = '') {
     $logDir = __DIR__ . '/../logs';
@@ -14,7 +15,10 @@ function logActivity($username, $action, $details = '') {
 }
 
 try {
-    $db = PgConnection::connect(getenv('DATABASE_URL'));
+    $db = pg_connect(getenv('DATABASE_URL'));
+    if ($db === false) {
+        throw new Exception('Failed to connect to database');
+    }
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
@@ -35,6 +39,11 @@ switch ($method) {
     case 'GET':
         if ($path[1] === 'hotels') {
             $result = pg_query($db, 'SELECT name, lat, lon, amenities, availability FROM hotels');
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             $hotels = pg_fetch_all($result) ?: [];
             foreach ($hotels as &$hotel) {
                 $hotel['lat'] = floatval($hotel['lat']);
@@ -46,17 +55,32 @@ switch ($method) {
             echo json_encode($hotels);
         } elseif ($path[1] === 'amenities') {
             $result = pg_query($db, 'SELECT DISTINCT unnest(amenities::jsonb) AS amenity FROM hotels');
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             $amenities = array_column(pg_fetch_all($result) ?: [], 'amenity');
             sort($amenities);
             logActivity($authUser, 'Fetch Amenities');
             echo json_encode(array_values(array_unique($amenities)));
         } elseif ($path[1] === 'user-hotels') {
             $result = pg_query_params($db, 'SELECT h.name FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$authUser]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             $hotels = array_column(pg_fetch_all($result) ?: [], 'name');
             logActivity($authUser, 'Fetch User Hotels');
             echo json_encode($hotels);
         } elseif ($path[1] === 'users' && $path[2] === 'all') {
             $result = pg_query_params($db, 'SELECT username, is_admin FROM users WHERE username != $1', [$authUser]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             $users = pg_fetch_all($result) ?: [];
             logActivity($authUser, 'Fetch All Users');
             echo json_encode($users);
@@ -68,6 +92,11 @@ switch ($method) {
             $data = json_decode(file_get_contents('php://input'), true);
             $username = $data['username'] ?? '';
             $result = pg_query_params($db, 'SELECT username FROM users WHERE username = $1', [$username]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             if (pg_fetch_assoc($result)) {
                 logActivity($username, 'Login', 'Successful');
                 echo json_encode(['success' => true]);
@@ -86,6 +115,11 @@ switch ($method) {
             $password = $data['password'] ?? '';
             $is_admin = $data['is_admin'] ?? false;
             $result = pg_query_params($db, 'INSERT INTO users (username, password, is_admin) VALUES ($1, $2, $3) RETURNING id', [$username, $password, $is_admin]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             if ($row = pg_fetch_assoc($result)) {
                 logActivity($authUser, 'Create User', "Username: $username, Admin: $is_admin");
                 echo json_encode(['success' => true, 'id' => $row['id']]);
@@ -98,6 +132,11 @@ switch ($method) {
             $username = $data['username'] ?? '';
             $hotelName = $data['hotel_name'] ?? '';
             $result = pg_query_params($db, 'INSERT INTO user_hotels (user_id, hotel_id) SELECT u.id, h.id FROM users u, hotels h WHERE u.username = $1 AND h.name = $2', [$username, $hotelName]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             if ($result) {
                 logActivity($authUser, 'Assign Hotel', "User: $username, Hotel: $hotelName");
                 echo json_encode(['success' => true]);
@@ -115,6 +154,11 @@ switch ($method) {
             $amenities = json_encode($data['amenities']);
             $availability = json_encode($data['availability']);
             $result = pg_query_params($db, 'UPDATE hotels SET amenities = $1, availability = $2 WHERE name = $3', [$amenities, $availability, $name]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             if ($result) {
                 logActivity($authUser, 'Update Hotel', "Hotel: $name");
                 echo json_encode(['success' => true]);
@@ -130,6 +174,11 @@ switch ($method) {
             $username = $path[2];
             $hotelName = $_GET['hotel_name'] ?? '';
             $result = pg_query_params($db, 'DELETE FROM user_hotels WHERE user_id = (SELECT id FROM users WHERE username = $1) AND hotel_id = (SELECT id FROM hotels WHERE name = $2)', [$username, $hotelName]);
+            if ($result === false) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                exit;
+            }
             if ($result) {
                 logActivity($authUser, 'Remove Hotel Access', "User: $username, Hotel: $hotelName");
                 echo json_encode(['success' => true]);

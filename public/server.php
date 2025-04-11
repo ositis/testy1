@@ -1,59 +1,64 @@
 <?php
-ini_set('display_errors', '0');
-error_reporting(E_ALL);
+require '../vendor/autoload.php';
 
-$db = pg_connect(getenv('DATABASE_URL'));
-if ($db === false) {
-    http_response_code(500);
-    die('Database connection failed');
+function logActivity($username, $action, $details = '') {
+    $logDir = __DIR__ . '/../logs';
+    if (!file_exists($logDir)) mkdir($logDir, 0777, true);
+    $logFile = "$logDir/activity.log";
+    $timestamp = date('Y-m-d H:i:s');
+    $line = "$timestamp\t$username\t$action\t$details\n";
+    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
 }
 
 function checkAuth($db) {
-    // Check if user is already authenticated
-    if (isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-        $username = $_SERVER['PHP_AUTH_USER'];
-        $password = $_SERVER['PHP_AUTH_PW'];
-        $result = pg_query_params($db, 'SELECT username FROM users WHERE username = $1 AND password = $2', [$username, $password]);
-        if ($result && pg_fetch_assoc($result)) {
-            return $username;
-        }
+    if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
+        header('WWW-Authenticate: Basic realm="Restricted Area"');
+        header('HTTP/1.0 401 Unauthorized');
+        echo 'Unauthorized';
+        exit;
     }
-    // Redirect to login page if not authenticated
-    header('Location: /login');
+    $username = $_SERVER['PHP_AUTH_USER'];
+    $password = $_SERVER['PHP_AUTH_PW'];
+    $result = pg_query_params($db, 'SELECT * FROM users WHERE username = $1 AND password = $2', [$username, $password]);
+    if ($result === false) {
+        header('WWW-Authenticate: Basic realm="Restricted Area"');
+        header('HTTP/1.0 500 Internal Server Error');
+        echo json_encode(['error' => 'Database query failed: ' . pg_last_error($db)]);
+        exit;
+    }
+    if (!pg_fetch_assoc($result)) {
+        header('WWW-Authenticate: Basic realm="Restricted Area"');
+        header('HTTP/1.0 401 Unauthorized');
+        echo 'Unauthorized';
+        exit;
+    }
+    return $username;
+}
+
+try {
+    $db = pg_connect(getenv('DATABASE_URL'));
+    if ($db === false) {
+        throw new Exception('Failed to connect to database');
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
 
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$authUser = null;
+ini_set('display_errors', '1'); // Enable error display for debugging
+error_reporting(E_ALL);
 
-if ($path === '/dashboard' || $path === '/admin') {
-    $authUser = checkAuth($db);
-}
+$authUser = checkAuth($db);
+logActivity($authUser, "Page Access", "Accessed {$_SERVER['REQUEST_URI']}");
 
-if ($path === '/') {
-    require 'index.php';
-} elseif ($path === '/dashboard') {
-    require 'dashboard.php';
-} elseif ($path === '/admin') {
-    require 'admin.php';
-} elseif ($path === '/login') {
-    require 'login.php';
-} elseif (str_starts_with($path, '/api')) {
-    require 'api.php';
-} elseif (str_starts_with($path, '/css') || str_starts_with($path, '/js')) {
-    $file = 'public' . $path;
-    if (file_exists($file)) {
-        if (str_ends_with($file, '.css')) {
-            header('Content-Type: text/css');
-        } elseif (str_ends_with($file, '.js')) {
-            header('Content-Type: application/javascript');
-        }
-        readfile($file);
-    } else {
-        http_response_code(404);
-        echo 'File not found';
-    }
+$uri = $_SERVER['REQUEST_URI'];
+if (strpos($uri, '/api') === 0) {
+    require '../src/api.php';
+} elseif ($uri === '/dashboard') {
+    require 'dashboard.php'; // Assumes dashboard.php is in public/
+} elseif ($uri === '/admin') {
+    require 'admin.php'; // Assumes admin.php is in public/
 } else {
-    http_response_code(404);
-    echo 'Not Found';
+    require 'index.php';
 }

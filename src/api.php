@@ -55,7 +55,7 @@ switch ($method) {
             logActivity($authUser, 'Fetch Amenities');
             echo json_encode($amenities);
         } elseif ($path[1] === 'user-hotels') {
-            $username = $_GET['username'] ?? $authUser; // Allow admin to fetch another's hotels
+            $username = $_GET['username'] ?? $authUser;
             $result = pg_query_params($db, 'SELECT h.name FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$username]);
             if ($result === false) {
                 http_response_code(500);
@@ -143,20 +143,25 @@ switch ($method) {
         if ($path[1] === 'hotels' && isset($path[2])) {
             $data = json_decode(file_get_contents('php://input'), true);
             $name = $path[2];
+            error_log("PUT /api/hotels/$name payload: " . json_encode($data)); // Debug
             $amenities = json_encode($data['amenities']);
             $availability = json_encode($data['availability']);
             $result = pg_query_params($db, 'UPDATE hotels SET amenities = $1, availability = $2 WHERE name = $3', [$amenities, $availability, $name]);
             if ($result === false) {
                 http_response_code(500);
                 echo json_encode(['error' => 'Query failed: ' . pg_last_error($db)]);
+                error_log("PUT /api/hotels/$name failed: " . pg_last_error($db)); // Debug
                 exit;
             }
-            if ($result) {
+            $affectedRows = pg_affected_rows($result);
+            error_log("PUT /api/hotels/$name affected rows: $affectedRows"); // Debug
+            if ($affectedRows > 0) {
                 logActivity($authUser, 'Update Hotel', "Hotel: $name");
                 echo json_encode(['success' => true]);
             } else {
                 http_response_code(500);
-                echo json_encode(['error' => 'Update failed']);
+                echo json_encode(['error' => 'Update failed: No rows affected']);
+                error_log("PUT /api/hotels/$name: No rows affected"); // Debug
             }
         }
         break;

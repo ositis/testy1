@@ -1,56 +1,53 @@
 <?php
-require 'vendor/autoload.php'; // Composer autoload
+require '../vendor/autoload.php'; // Adjusted path
 
 use PostgreSQL\Connection as PgConnection;
 
-// Password protection
-function checkAuth() {
-    $username = 'admin';
-    $password = '173713'; // Change this!
-    if (!isset($_SERVER['PHP_AUTH_USER']) || 
-        $_SERVER['PHP_AUTH_USER'] !== $username || 
-        $_SERVER['PHP_AUTH_PW'] !== $password) {
+function logActivity($username, $action, $details = '') {
+    $logDir = __DIR__ . '/../logs';
+    if (!file_exists($logDir)) mkdir($logDir, 0777, true);
+    $logFile = "$logDir/activity.log";
+    $timestamp = date('Y-m-d H:i:s');
+    $line = "$timestamp\t$username\t$action\t$details\n";
+    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+}
+
+function checkAuth($db) {
+    if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
         header('WWW-Authenticate: Basic realm="Restricted Area"');
         header('HTTP/1.0 401 Unauthorized');
         echo 'Unauthorized';
         exit;
     }
+    $username = $_SERVER['PHP_AUTH_USER'];
+    $password = $_SERVER['PHP_AUTH_PW'];
+    $result = pg_query_params($db, 'SELECT * FROM users WHERE username = $1 AND password = $2', [$username, $password]);
+    if (!pg_fetch_assoc($result)) {
+        header('WWW-Authenticate: Basic realm="Restricted Area"');
+        header('HTTP/1.0 401 Unauthorized');
+        echo 'Unauthorized';
+        exit;
+    }
+    return $username;
 }
 
-checkAuth();
-
-// Database setup
 try {
     $db = PgConnection::connect(getenv('DATABASE_URL'));
-    pg_query($db, 'CREATE TABLE IF NOT EXISTS hotels (
-        id SERIAL PRIMARY KEY,
-        name TEXT UNIQUE,
-        lat REAL,
-        lon REAL,
-        amenities JSONB,
-        availability JSONB,
-        manager_username TEXT,
-        manager_password TEXT
-    )');
-    // Seed initial data (run once)
-    $initialHotels = [
-        ['The Grand Hotel', 51.5074, -0.1278, json_encode(['Free WiFi', 'Swimming Pool']), json_encode(['Free WiFi' => true, 'Swimming Pool' => false]), 'grandmgr', 'pass123'],
-        ['Seaside Retreat', 50.7174, -3.5333, json_encode(['Jacuzzi', 'Beach Access']), json_encode(['Jacuzzi' => true, 'Beach Access' => false]), 'seasidemgr', 'pass456']
-    ];
-    foreach ($initialHotels as $hotel) {
-        pg_query_params($db, 'INSERT INTO hotels (name, lat, lon, amenities, availability, manager_username, manager_password) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (name) DO NOTHING', $hotel);
-    }
 } catch (Exception $e) {
     die('Database error: ' . $e->getMessage());
 }
 
-// Route handling
+$authUser = checkAuth($db);
+logActivity($authUser, "Page Access", "Accessed {$_SERVER['REQUEST_URI']}");
+
 $uri = $_SERVER['REQUEST_URI'];
 if (strpos($uri, '/api') === 0) {
-    require 'src/api.php';
+    require '../src/api.php'; // Adjusted path
 } elseif ($uri === '/dashboard') {
-    require 'dashboard.php';
+    require '../dashboard.php'; // Adjusted path
+} elseif ($uri === '/admin') {
+    require '../admin.php'; // Adjusted path
 } else {
-    require 'public/index.php';
+    require 'index.php'; // Relative to public/
 }
 ?>

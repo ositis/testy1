@@ -46,6 +46,9 @@ try {
     exit;
 }
 
+ini_set('display_errors', '1'); // Enable error display for debugging
+error_reporting(E_ALL);
+
 $authUser = checkAuth($db);
 logActivity($authUser, "Page Access", "Accessed {$_SERVER['REQUEST_URI']}");
 

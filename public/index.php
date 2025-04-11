@@ -9,6 +9,25 @@
     <script src="https://unpkg.com/leaflet-geometryutil@0.10.2/dist/leaflet.geometryutil.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="/js/map.js" defer></script>
+    <style>
+        /* Ensure the Dashboard button matches the existing button style */
+        #sidebar button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 14px;
+        }
+        #sidebar button:hover {
+            background: #45a049;
+        }
+    </style>
 </head>
 <body>
     <div id="map"></div>
@@ -75,6 +94,7 @@
         </div>
         <div id="distance-list">Click a store or select from the dropdown to see distances</div>
         <div id="stats"></div>
+        <button onclick="window.location.href='/dashboard'">Dashboard</button>
         <button onclick="map.setView([54.0, -2.0], 6)">Reset Zoom</button>
     </div>
 </body>

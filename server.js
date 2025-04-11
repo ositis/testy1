@@ -1,5 +1,3 @@
-javascript
-
 const express = require('express');
 const { Pool } = require('pg'); // PostgreSQL client
 const basicAuth = require('express-basic-auth');

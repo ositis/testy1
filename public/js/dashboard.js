@@ -5,13 +5,14 @@ function logAction(action, details = '') {
     fetch('/api/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'unknown', action, details }) // $authUser not available, could pass from PHP
+        body: JSON.stringify({ username: 'unknown', action, details })
     }).catch(err => console.error('Logging failed:', err));
 }
 
 function renderAmenities() {
     const amenitiesDiv = document.getElementById('amenities');
     amenitiesDiv.innerHTML = '';
+    if (!currentHotel || !currentHotel.amenities) return;
     currentHotel.amenities.forEach(amenity => {
         const div = document.createElement('div');
         div.className = 'amenity-item';
@@ -62,7 +63,7 @@ function saveChangesDebounced() {
         } catch (err) {
             statusDiv.textContent = 'Error: ' + err.message;
         }
-    }, 1000); // 1-second debounce
+    }, 1000);
 }
 
 function logout() {
@@ -71,9 +72,16 @@ function logout() {
 }
 
 function initDashboard() {
-    if (hotels.length === 0) return;
+    console.log('initDashboard called');
+    if (!hotels || hotels.length === 0) {
+        console.log('No hotels available');
+        return;
+    }
 
     const hotelSelect = document.getElementById('hotel-select');
+    const editorDiv = document.getElementById('editor');
+    editorDiv.style.display = 'block'; // Ensure editor is visible
+
     currentHotel = JSON.parse(hotelSelect.value);
     document.getElementById('hotel-name').textContent = currentHotel.name;
     renderAmenities();

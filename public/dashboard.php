@@ -1,8 +1,18 @@
 <?php
 global $db, $authUser;
 
-$result = pg_query_params($db, 'SELECT h.name, h.lat, h.lon, h.amenities, h.availability FROM hotels h JOIN user_hotels uh ON h.id = uh.hotel_id JOIN users u ON uh.user_id = u.id WHERE u.username = $1', [$authUser]);
+// Debug: Log the authenticated user
+error_log("Authenticated user: $authUser");
+
+// Fetch user's hotels
+$query = 'SELECT h.name, h.lat, h.lon, h.amenities, h.availability 
+          FROM hotels h 
+          JOIN user_hotels uh ON h.id = uh.hotel_id 
+          JOIN users u ON uh.user_id = u.id 
+          WHERE u.username = $1';
+$result = pg_query_params($db, $query, [$authUser]);
 if ($result === false) {
+    error_log("Query failed: " . pg_last_error($db));
     die('Query failed: ' . pg_last_error($db));
 }
 $hotels = pg_fetch_all($result) ?: [];
@@ -10,6 +20,9 @@ foreach ($hotels as &$hotel) {
     $hotel['amenities'] = json_decode($hotel['amenities'], true);
     $hotel['availability'] = json_decode($hotel['availability'], true);
 }
+
+// Debug: Log the hotels array
+error_log("Hotels for $authUser: " . json_encode($hotels));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -80,6 +93,7 @@ foreach ($hotels as &$hotel) {
     </div>
     <script>
         const hotels = <?php echo json_encode($hotels); ?>;
+        console.log('Hotels loaded:', hotels); // Debug
     </script>
 </body>
 </html>

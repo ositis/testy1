@@ -1,5 +1,5 @@
 <?php
-require '../vendor/autoload.php'; // Adjusted path
+require '../vendor/autoload.php';
 
 use PostgreSQL\Connection as PgConnection;
 
@@ -34,7 +34,9 @@ function checkAuth($db) {
 try {
     $db = PgConnection::connect(getenv('DATABASE_URL'));
 } catch (Exception $e) {
-    die('Database error: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    exit;
 }
 
 $authUser = checkAuth($db);
@@ -42,12 +44,11 @@ logActivity($authUser, "Page Access", "Accessed {$_SERVER['REQUEST_URI']}");
 
 $uri = $_SERVER['REQUEST_URI'];
 if (strpos($uri, '/api') === 0) {
-    require '../src/api.php'; // Adjusted path
+    require '../src/api.php';
 } elseif ($uri === '/dashboard') {
-    require '../dashboard.php'; // Adjusted path
+    require '../dashboard.php';
 } elseif ($uri === '/admin') {
-    require '../admin.php'; // Adjusted path
+    require '../admin.php';
 } else {
-    require 'index.php'; // Relative to public/
+    require 'index.php';
 }
-?>

@@ -93,7 +93,9 @@ error_log("Hotels for $authUser: " . json_encode($hotels));
     </div>
     <script>
         const hotels = <?php echo json_encode($hotels); ?>;
-        console.log('Hotels loaded:', hotels); // Debug
+        const authUser = <?php echo json_encode($authUser); ?>;
+        console.log('Hotels loaded:', hotels);
+        console.log('Authenticated user:', authUser);
     </script>
 </body>
 </html>

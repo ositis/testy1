@@ -50,24 +50,24 @@ function saveChangesDebounced() {
     debounceTimeout = setTimeout(async () => {
         try {
             const payload = { amenities: currentHotel.amenities, availability: currentHotel.availability };
-            console.log('Sending payload:', payload); // Debug
+            console.log('Sending payload:', payload);
             const response = await fetch(`/api/hotels/${encodeURIComponent(currentHotel.name)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            console.log('Response status:', response.status); // Debug
+            console.log('Response status:', response.status);
             if (response.ok) {
                 statusDiv.textContent = 'Saved successfully';
                 logAction('Save Changes', currentHotel.name);
             } else {
                 const errorText = await response.text();
                 statusDiv.textContent = 'Failed to save: ' + errorText;
-                console.log('Error response:', errorText); // Debug
+                console.log('Error response:', errorText);
             }
         } catch (err) {
             statusDiv.textContent = 'Error: ' + err.message;
-            console.log('Fetch error:', err); // Debug
+            console.log('Fetch error:', err);
         }
     }, 1000);
 }
@@ -77,7 +77,26 @@ function logout() {
     logAction('Logout');
 }
 
-function initDashboard() {
+async function fetchHotelData(hotelName) {
+    try {
+        const response = await fetch(`/api/hotels`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch hotel data');
+        }
+        const hotels = await response.json();
+        const hotel = hotels.find(h => h.name === hotelName);
+        if (!hotel) {
+            throw new Error(`Hotel ${hotelName} not found`);
+        }
+        return hotel;
+    } catch (err) {
+        console.error('Error fetching hotel data:', err);
+        document.getElementById('status').textContent = 'Error loading hotel data: ' + err.message;
+        return null;
+    }
+}
+
+async function initDashboard() {
     console.log('initDashboard called');
     if (!hotels || hotels.length === 0) {
         console.log('No hotels available');
@@ -88,15 +107,22 @@ function initDashboard() {
     const editorDiv = document.getElementById('editor');
     editorDiv.style.display = 'block';
 
-    currentHotel = JSON.parse(hotelSelect.value);
-    document.getElementById('hotel-name').textContent = currentHotel.name;
-    renderAmenities();
-
-    hotelSelect.addEventListener('change', function() {
-        currentHotel = JSON.parse(this.value);
+    // Initial load: Fetch fresh data for the first hotel
+    const initialHotelName = JSON.parse(hotelSelect.value).name;
+    currentHotel = await fetchHotelData(initialHotelName);
+    if (currentHotel) {
         document.getElementById('hotel-name').textContent = currentHotel.name;
         renderAmenities();
-        logAction('Select Hotel', currentHotel.name);
+    }
+
+    hotelSelect.addEventListener('change', async function() {
+        const selectedHotel = JSON.parse(this.value);
+        currentHotel = await fetchHotelData(selectedHotel.name);
+        if (currentHotel) {
+            document.getElementById('hotel-name').textContent = currentHotel.name;
+            renderAmenities();
+            logAction('Select Hotel', currentHotel.name);
+        }
     });
 
     logAction('Dashboard Loaded');

@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require 'vendor/autoload.php';
+require '../vendor/autoload.php'; // Adjusted path
 
 use PostgreSQL\Connection as PgConnection;
 

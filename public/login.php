@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Successful login - set headers for HTTP Basic Auth
         header('PHP_AUTH_USER: ' . $username);
         header('PHP_AUTH_PW: ' . $password);
-        header('Location: /dashboard');
+        header('Location: /'); // Redirect to map instead of dashboard
         exit;
     } else {
         $error = 'Invalid username or password';

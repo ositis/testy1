@@ -1,1 +1,208 @@
-
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #eaeaea;
+}
+#map {
+    height: 100vh;
+    width: 70%;
+    float: left;
+}
+#sidebar-toggle {
+    position: fixed;
+    right: 10px;
+    top: 10px;
+    z-index: 1000;
+    cursor: pointer;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    display: none;
+}
+.burger-line {
+    width: 25px;
+    height: 3px;
+    background-color: #333;
+    margin: 4px 0;
+    transition: 0.4s;
+}
+#sidebar-toggle.active .burger-line:nth-child(1) {
+    transform: rotate(-45deg) translate(-5px, 6px);
+}
+#sidebar-toggle.active .burger-line:nth-child(2) {
+    opacity: 0;
+}
+#sidebar-toggle.active .burger-line:nth-child(3) {
+    transform: rotate(45deg) translate(-5px, -6px);
+}
+#location-indicator {
+    position: fixed;
+    right: 60px;
+    top: 10px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 4px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    font-size: 14px;
+    display: none;
+}
+#sidebar:not(.visible) ~ #location-indicator {
+    display: block;
+}
+#sidebar {
+    height: 100vh;
+    width: 30%;
+    float: right;
+    padding: 20px;
+    background-color: #ffffff;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    box-sizing: border-box;
+    transition: transform 0.3s ease-in-out;
+}
+#sidebar-toggle {
+    display: block;
+}
+#sidebar {
+    transform: translateX(100%);
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 999;
+}
+#sidebar.visible {
+    transform: translateX(0);
+}
+#map {
+    width: 100%;
+}
+@media (min-width: 601px) {
+    #sidebar.visible {
+        width: 30%;
+    }
+    #map {
+        width: 100%;
+    }
+    #sidebar.visible + #map {
+        width: 70%;
+    }
+}
+#stats {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #333;
+}
+.distance-label {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 3px 7px;
+    font-size: 12px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+button {
+    margin-top: 10px;
+    padding: 10px 15px;
+    font-size: 14px;
+    background-color: #4CAF50;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #45a049;
+}
+label {
+    font-size: 14px;
+    color: #333;
+}
+select {
+    padding: 5px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+#custom-address-container {
+    display: none;
+    margin-bottom: 10px;
+}
+#custom-address-input {
+    width: 100%;
+    padding: 5px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    margin-bottom: 5px;
+}
+#settings, #amenity-filters {
+    margin: 10px 0;
+}
+#settings details, #amenity-filters details {
+    margin-bottom: 10px;
+}
+#settings summary, #amenity-filters summary {
+    cursor: pointer;
+    font-weight: bold;
+}
+.toggle-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+    padding: 4px 0;
+}
+.toggle-container label {
+    width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 20px !important;
+    height: 16px;
+    flex-shrink: 0;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 16px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 8px;
+    width: 8px;
+    left: 2px;
+    top: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: #4CAF50;
+}
+input:checked + .slider:before {
+    transform: translateX(6px);
+}
+#amenity-filters label {
+    display: block;
+}

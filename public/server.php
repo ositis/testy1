@@ -20,6 +20,12 @@ function checkAuth($db) {
     $username = $_SERVER['PHP_AUTH_USER'];
     $password = $_SERVER['PHP_AUTH_PW'];
     $result = pg_query_params($db, 'SELECT * FROM users WHERE username = $1 AND password = $2', [$username, $password]);
+    if ($result === false) {
+        header('WWW-Authenticate: Basic realm="Restricted Area"');
+        header('HTTP/1.0 500 Internal Server Error');
+        echo json_encode(['error' => 'Database query failed: ' . pg_last_error($db)]);
+        exit;
+    }
     if (!pg_fetch_assoc($result)) {
         header('WWW-Authenticate: Basic realm="Restricted Area"');
         header('HTTP/1.0 401 Unauthorized');
@@ -30,7 +36,7 @@ function checkAuth($db) {
 }
 
 try {
-    $db = pg_connect(getenv('DATABASE_URL')); // Use pg_connect instead
+    $db = pg_connect(getenv('DATABASE_URL'));
     if ($db === false) {
         throw new Exception('Failed to connect to database');
     }
